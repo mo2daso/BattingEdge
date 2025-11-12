@@ -1,0 +1,25 @@
+# --- Core AI & Computer Vision ---
+opencv-python-headless
+mediapipe
+ultralytics
+
+# --- ML Models & Data ---
+tensorflow
+scikit-learn
+pandas
+numpy
+datasets    # For Hugging Face dataset
+joblib      # For saving sklearn models
+
+# --- Backend API ---
+fastapi
+uvicorn[standard]  # The server
+python-multipart # For file uploads
+SQLAlchemy       # Database ORM
+passlib[bcrypt]  # Password hashing
+python-jose[cryptography] # JWT tokens
+
+# --- Notebooks & Plotting ---
+jupyter
+matplotlib
+seaborn
