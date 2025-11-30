@@ -1,0 +1,32 @@
+{
+  "num_classes": 10,
+  "classes": [
+    "cover",
+    "defense",
+    "flick",
+    "hook",
+    "late_cut",
+    "lofted",
+    "pull",
+    "square_cut",
+    "straight",
+    "sweep"
+  ],
+  "train_samples": 1250,
+  "val_samples": 250,
+  "test_samples": 250,
+  "test_accuracy": 0.335999995470047,
+  "val_accuracy": 0.3840000033378601,
+  "class_counts_train": {
+    "0": 125,
+    "1": 125,
+    "2": 125,
+    "3": 125,
+    "4": 125,
+    "5": 125,
+    "6": 125,
+    "7": 125,
+    "8": 125,
+    "9": 125
+  }
+}

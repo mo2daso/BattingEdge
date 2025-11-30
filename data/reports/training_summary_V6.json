@@ -1,0 +1,13 @@
+{
+  "train_samples": 156,
+  "val_samples": 34,
+  "test_samples": 34,
+  "classes": [
+    "good",
+    "head_falling",
+    "late_foot",
+    "low_elbow",
+    "off_balance"
+  ],
+  "test_accuracy": 0.29411765933036804
+}

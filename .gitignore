@@ -1,36 +1,54 @@
-# Python
-venv/
-__pycache__/
-*.pyc
-.ipynb_checkpoints
+# ===========================
+# BATTING EDGE - GIT IGNORE
+# ===========================
 
-# OS
+# --- 1. System & Python Garbage ---
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints
+venv/
+.env
+.vscode/
+.idea/
 .DS_Store
 
-# Node
-node_modules/
+# --- 2. Heavy Data & Features (CRITICAL) ---
+# We keep the folder structure, but ignore the contents
+data/features/
+data/dataset_*/
+# Ignore all numpy arrays anywhere in the project
+*.npy
+*.npz
 
-# IDE
-.vscode/
+# --- 3. Video Assets ---
+# Ignore raw testing clips (Local only)
+data/raw_test_clips/
+data/unprofvids/
+# Ignore generated demo outputs
+data/demo_outputs/
+data/defense_demos/
+# Ignore all video formats to prevent accidental uploads
+*.mp4
+*.avi
+*.mov
+*.mkv
 
-# --- Project Data, Media & Logs (NEW) ---
-
-# 1. Ignore all log files and folders
+# --- 4. Logs & Reports ---
 logs/
 *.log
+# Ignore temporary audit files if you forgot to delete them
+FULL_DEEP_AUDIT_REPORT.json
+project_inventory.json
+COMPLETE MASTER PLAN.pdf
 
-# 2. Ignore the large RAW video data folders
-# (This ignores your 225 videos AND the 1,750 videos)
-data/videos_for_error_labeling/
-data/videos_for_shot_classifier/
-data/demo_video/
+# --- 5. Models (Selective) ---
+# We WANT to upload your final V8p models because they are small (<100MB).
+# But we IGNORE intermediate checkpoints or huge training buffers.
+backend/models/checkpoints/
+*.h5
 
-# 3. Ignore the processed .npy feature files
-# (This ignores the ~1750 files you just made AND the 225 from before)
-data/features/
-
-# 4. Ignore generated reports that are not text/images
-# We want to KEEP .png, .txt, and .csv files, but ignore videos
-data/reports/*.mp4
-data/reports/*.avi
-data/reports/*.json
+# --- 6. Archives ---
+archive/
+*.zip
+*.rar
