@@ -1,0 +1,532 @@
+================================================================================
+BATTINGEDGE PROJECT AUDIT REPORT
+================================================================================
+Generated: 2025-11-30 14:42:59
+Total Project Size: 418.71 MB
+================================================================================
+
+📓 NOTEBOOKS SUMMARY
+--------------------------------------------------------------------------------
+Total notebooks: 32
+  - archive: 12 notebooks
+  - keep_main: 4 notebooks
+  - keep_utils: 9 notebooks
+  - review: 7 notebooks
+
+
+KEEP MAIN:
+  ✓ 1_Pose_Estimation_Demo.ipynb
+    Path: notebooks\1_Pose_Estimation_Demo.ipynb
+    Size: 13.38 KB, Modified: 2025-11-13 21:12
+    Category: demo
+  ✓ 2F_Feature_Engineering_V8p.ipynb
+    Path: notebooks\2F_Feature_Engineering_V8p.ipynb
+    Size: 12.95 KB, Modified: 2025-11-25 20:57
+    Category: production_feature
+  ✓ 3_Model_Training_V8_Shot_Classifier.ipynb
+    Path: notebooks\3_Model_Training_V8_Shot_Classifier.ipynb
+    Size: 73.90 KB, Modified: 2025-11-22 10:45
+    Category: production_training
+  ✓ 3_Model_Training_V8p_Shot_Classifier.ipynb
+    Path: notebooks\3_Model_Training_V8p_Shot_Classifier.ipynb
+    Size: 114.55 KB, Modified: 2025-11-25 21:24
+    Category: production_training
+
+KEEP UTILS:
+  ✓ 0_Utility_CSV.ipynb
+    Path: notebooks\0_Utility_CSV.ipynb
+    Size: 2.60 KB, Modified: 2025-11-15 12:47
+    Category: utility
+  ✓ 0_Utility_Count_Videos.ipynb
+    Path: notebooks\0_Utility_Count_Videos.ipynb
+    Size: 2.82 KB, Modified: 2025-11-21 21:01
+    Category: utility
+  ✓ 0_Utility_Data_Scanner.ipynb
+    Path: notebooks\0_Utility_Data_Scanner.ipynb
+    Size: 4.46 KB, Modified: 2025-11-17 21:15
+    Category: utility
+  ✓ 0_Utility_Generate_Master_CSV_Clean.ipynb
+    Path: notebooks\0_Utility_Generate_Master_CSV_Clean.ipynb
+    Size: 3.22 KB, Modified: 2025-11-21 22:25
+    Category: utility
+  ✓ 0_Utility_Generate_Unified_CSV.ipynb
+    Path: notebooks\0_Utility_Generate_Unified_CSV.ipynb
+    Size: 3.54 KB, Modified: 2025-11-21 21:01
+    Category: utility
+  ✓ 0_Utility_Organize_Dataset.ipynb
+    Path: notebooks\0_Utility_Organize_Dataset.ipynb
+    Size: 77.06 KB, Modified: 2025-11-21 22:25
+    Category: utility
+  ✓ 0_Utility_Organize_Dataset_V8_Balance.ipynb
+    Path: notebooks\0_Utility_Organize_Dataset_V8_Balance.ipynb
+    Size: 6.32 KB, Modified: 2025-11-24 22:07
+    Category: utility
+  ✓ 0_Utility_Renamer.ipynb
+    Path: notebooks\0_Utility_Renamer.ipynb
+    Size: 15.78 KB, Modified: 2025-11-15 11:25
+    Category: utility
+  ✓ 0_Utility_Verify_Features.ipynb
+    Path: notebooks\0_Utility_Verify_Features.ipynb
+    Size: 300.06 KB, Modified: 2025-11-18 01:04
+    Category: utility
+
+ARCHIVE:
+  ✓ 0_Debug_Paths.ipynb
+    Path: notebooks\0_Debug_Paths.ipynb
+    Size: 5.14 KB, Modified: 2025-11-21 21:02
+    Category: debug
+  ✓ 0_Debug_Shape.ipynb
+    Path: notebooks\0_Debug_Shape.ipynb
+    Size: 3.89 KB, Modified: 2025-11-21 21:02
+    Category: debug
+  ✓ 0_Debug_V7_Crash.ipynb
+    Path: notebooks\0_Debug_V7_Crash.ipynb
+    Size: 3.84 KB, Modified: 2025-11-21 21:01
+    Category: debug
+  ✓ 2E_Feature_Engineering_V7.ipynb
+    Path: notebooks\2E_Feature_Engineering_V7.ipynb
+    Size: 11.26 KB, Modified: 2025-11-21 21:01
+    Category: old_version
+  ✓ 2F_Feature_Engineering_V7_Clean.ipynb
+    Path: notebooks\2F_Feature_Engineering_V7_Clean.ipynb
+    Size: 15.66 KB, Modified: 2025-11-22 10:45
+    Category: old_version
+  ✓ 3_Model_Training_V3_RF_FAIL.ipynb.ipynb
+    Path: notebooks\3_Model_Training_V3_RF_FAIL.ipynb.ipynb
+    Size: 32.51 KB, Modified: 2025-11-17 18:33
+    Category: failed_experiment
+  ✓ 3_Model_Training_V4_LSTM_FAIL.ipynb.ipynb
+    Path: notebooks\3_Model_Training_V4_LSTM_FAIL.ipynb.ipynb
+    Size: 46.83 KB, Modified: 2025-11-17 19:10
+    Category: failed_experiment
+  ✓ 3_Model_Training_V5-FIXED.ipynb
+    Path: notebooks\3_Model_Training_V5-FIXED.ipynb
+    Size: 45.27 KB, Modified: 2025-11-18 02:20
+    Category: old_version
+  ✓ 3_Model_Training_V5_Shot_Classifier.ipynb
+    Path: notebooks\3_Model_Training_V5_Shot_Classifier.ipynb
+    Size: 63.96 KB, Modified: 2025-11-18 02:12
+    Category: old_version
+  ✓ 3_Model_Training_V6_FineTune_FAIL.ipynb.ipynb
+    Path: notebooks\3_Model_Training_V6_FineTune_FAIL.ipynb.ipynb
+    Size: 28.72 KB, Modified: 2025-11-18 06:09
+    Category: failed_experiment
+  ✓ 3_Model_Training_V7_Diagnostic.ipynb
+    Path: notebooks\3_Model_Training_V7_Diagnostic.ipynb
+    Size: 70.30 KB, Modified: 2025-11-21 21:01
+    Category: old_version
+  ✓ 3_Model_Training_V7_Shot_Classifier.ipynb
+    Path: notebooks\3_Model_Training_V7_Shot_Classifier.ipynb
+    Size: 25.81 KB, Modified: 2025-11-21 21:01
+    Category: old_version
+
+REVIEW:
+  ✓ 0_Project_Audit.ipynb
+    Path: notebooks\0_Project_Audit.ipynb
+    Size: 167.39 KB, Modified: 2025-11-23 22:08
+    Category: needs_review
+  ✓ 0_Project_Audit_V8p.ipynb
+    Path: notebooks\0_Project_Audit_V8p.ipynb
+    Size: 13.40 KB, Modified: 2025-11-24 21:38
+    Category: needs_review
+  ✓ 2D_Feature_Engineering_HF_Local.ipynb
+    Path: notebooks\2D_Feature_Engineering_HF_Local.ipynb
+    Size: 28.97 KB, Modified: 2025-11-18 00:52
+    Category: needs_review
+  ✓ 2_Feature_Engineering.ipynb
+    Path: notebooks\2_Feature_Engineering.ipynb
+    Size: 122.13 KB, Modified: 2025-11-15 13:46
+    Category: needs_review
+  ✓ 3_Model_Training_Error.ipynb
+    Path: notebooks\3_Model_Training_Error.ipynb
+    Size: 20.85 KB, Modified: 2025-11-17 17:45
+    Category: needs_review
+  ✓ 5_Diagnostics_V8p_Pose_Comparison.ipynb
+    Path: notebooks\5_Diagnostics_V8p_Pose_Comparison.ipynb
+    Size: 166.29 KB, Modified: 2025-11-25 21:42
+    Category: needs_review
+  ✓ 6_Compare_All_Shots_Biomech.ipynb
+    Path: notebooks\6_Compare_All_Shots_Biomech.ipynb
+    Size: 113.48 KB, Modified: 2025-11-25 22:12
+    Category: needs_review
+
+================================================================================
+
+🧠 MODELS SUMMARY
+--------------------------------------------------------------------------------
+Total model files: 28
+  - Production (V8p): 4 files
+  - Archive (V1-V7): 4 files
+
+PRODUCTION MODELS (KEEP):
+  ✓ shot_brain_V8p.keras
+    Path: backend\models\shot_brain_V8p.keras
+    Size: 4.77 MB, Type: shot_classifier
+  ✓ shot_model_V8p_best.keras
+    Path: backend\models\shot_model_V8p_best.keras
+    Size: 4.77 MB, Type: shot_classifier
+  ✓ shot_encoder_V8p.pkl
+    Path: backend\models\shot_encoder_V8p.pkl
+    Size: 407.00 B, Type: shot_classifier
+  ✓ shot_scaler_V8p.pkl
+    Path: backend\models\shot_scaler_V8p.pkl
+    Size: 3.00 KB, Type: shot_classifier
+
+OLD MODELS (ARCHIVE):
+  📦 base_model_V7_BRAIN.keras (Version: 7, Size: 529.56 KB)
+  📦 shot_model_V7.keras (Version: 7.keras, Size: 1.52 MB)
+  📦 shot_encoder_V7.pkl (Version: 7.pkl, Size: 347.00 B)
+  📦 shot_scaler_V7.pkl (Version: 7.pkl, Size: 2.91 KB)
+
+================================================================================
+
+🎥 DATASETS SUMMARY
+--------------------------------------------------------------------------------
+
+🔍 defense_demos [KEEP_DEMO]
+   Path: data\defense_demos
+   Videos: 9
+   Size: 21.81 MB
+   Version: demo
+
+🔍 demo_video [KEEP_DEMO]
+   Path: data\demo_video
+   Videos: 46
+   Size: 99.96 MB
+   Version: demo
+
+🔍 demo_outputs [KEEP_DEMO]
+   Path: data\demo_outputs
+   Videos: 3
+   Size: 5.82 MB
+   Version: demo
+
+================================================================================
+
+📊 FEATURES SUMMARY
+--------------------------------------------------------------------------------
+
+📦 features [REVIEW]
+   Path: data\features
+   NPY files: 3403
+   Size: 66.41 MB
+   Features: unknown
+
+📦 dataset_v7_99feat [ARCHIVE]
+   Path: data\features\dataset_v7_99feat
+   NPY files: 1514
+   Size: 28.77 MB
+   Features: 66-dim or 99-dim
+
+✓ dataset_v8p [KEEP_ACTIVE]
+   Path: data\features\dataset_v8p
+   NPY files: 1889
+   Size: 37.64 MB
+   Features: 103-dim
+
+📦 test [REVIEW]
+   Path: data\features\dataset_v7_99feat\test
+   NPY files: 218
+   Size: 4.14 MB
+   Features: unknown
+
+📦 train [REVIEW]
+   Path: data\features\dataset_v7_99feat\train
+   NPY files: 1146
+   Size: 21.78 MB
+   Features: unknown
+
+📦 val [REVIEW]
+   Path: data\features\dataset_v7_99feat\val
+   NPY files: 150
+   Size: 2.85 MB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v7_99feat\test\cut
+   NPY files: 60
+   Size: 1.14 MB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v7_99feat\test\drive
+   NPY files: 73
+   Size: 1.39 MB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v7_99feat\test\pull
+   NPY files: 60
+   Size: 1.14 MB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v7_99feat\test\sweep
+   NPY files: 25
+   Size: 486.52 KB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v7_99feat\train\cut
+   NPY files: 315
+   Size: 5.99 MB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v7_99feat\train\drive
+   NPY files: 379
+   Size: 7.20 MB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v7_99feat\train\pull
+   NPY files: 312
+   Size: 5.93 MB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v7_99feat\train\sweep
+   NPY files: 140
+   Size: 2.66 MB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v7_99feat\val\cut
+   NPY files: 35
+   Size: 681.13 KB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v7_99feat\val\drive
+   NPY files: 45
+   Size: 875.74 KB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v7_99feat\val\pull
+   NPY files: 47
+   Size: 914.66 KB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v7_99feat\val\sweep
+   NPY files: 23
+   Size: 447.60 KB
+   Features: unknown
+
+📦 test [REVIEW]
+   Path: data\features\dataset_v8p\test
+   NPY files: 219
+   Size: 4.33 MB
+   Features: unknown
+
+📦 train [REVIEW]
+   Path: data\features\dataset_v8p\train
+   NPY files: 1520
+   Size: 30.30 MB
+   Features: unknown
+
+📦 val [REVIEW]
+   Path: data\features\dataset_v8p\val
+   NPY files: 150
+   Size: 3.00 MB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v8p\test\cut
+   NPY files: 61
+   Size: 1.21 MB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v8p\test\drive
+   NPY files: 73
+   Size: 1.44 MB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v8p\test\pull
+   NPY files: 60
+   Size: 1.19 MB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v8p\test\sweep
+   NPY files: 25
+   Size: 506.05 KB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v8p\train\cut
+   NPY files: 380
+   Size: 7.63 MB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v8p\train\drive
+   NPY files: 380
+   Size: 7.57 MB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v8p\train\pull
+   NPY files: 380
+   Size: 7.53 MB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v8p\train\sweep
+   NPY files: 380
+   Size: 7.57 MB
+   Features: unknown
+
+📦 cut [REVIEW]
+   Path: data\features\dataset_v8p\val\cut
+   NPY files: 35
+   Size: 728.59 KB
+   Features: unknown
+
+📦 drive [REVIEW]
+   Path: data\features\dataset_v8p\val\drive
+   NPY files: 45
+   Size: 910.90 KB
+   Features: unknown
+
+📦 pull [REVIEW]
+   Path: data\features\dataset_v8p\val\pull
+   NPY files: 47
+   Size: 951.38 KB
+   Features: unknown
+
+📦 sweep [REVIEW]
+   Path: data\features\dataset_v8p\val\sweep
+   NPY files: 23
+   Size: 485.69 KB
+   Features: unknown
+
+================================================================================
+
+📈 RESULTS FILES
+--------------------------------------------------------------------------------
+  • inference_test_results_full.csv
+    Path: data\reports\inference_test_results_full.csv
+    Size: 9.64 KB, Modified: 2025-11-29
+  • mt19937-testset-1.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\mt19937-testset-1.csv
+    Size: 16.45 KB, Modified: 2025-11-12
+  • mt19937-testset-2.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\mt19937-testset-2.csv
+    Size: 16.43 KB, Modified: 2025-11-12
+  • pcg64-testset-1.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\pcg64-testset-1.csv
+    Size: 24.26 KB, Modified: 2025-11-12
+  • pcg64-testset-2.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\pcg64-testset-2.csv
+    Size: 24.26 KB, Modified: 2025-11-12
+  • pcg64dxsm-testset-1.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\pcg64dxsm-testset-1.csv
+    Size: 24.25 KB, Modified: 2025-11-12
+  • pcg64dxsm-testset-2.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\pcg64dxsm-testset-2.csv
+    Size: 24.26 KB, Modified: 2025-11-12
+  • philox-testset-1.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\philox-testset-1.csv
+    Size: 24.27 KB, Modified: 2025-11-12
+  • philox-testset-2.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\philox-testset-2.csv
+    Size: 24.26 KB, Modified: 2025-11-12
+  • sfc64-testset-1.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\sfc64-testset-1.csv
+    Size: 24.26 KB, Modified: 2025-11-12
+  • sfc64-testset-2.csv
+    Path: venv\Lib\site-packages\numpy\random\tests\data\sfc64-testset-2.csv
+    Size: 24.25 KB, Modified: 2025-11-12
+
+📄 REPORT FILES (PDF)
+--------------------------------------------------------------------------------
+  • demo_report.pdf (1.44 KB)
+    Path: data\defense_demos\demo_report.pdf
+  • BattingEdge - Inference Optimization & Validation Report.pdf (273.97 KB)
+    Path: notebooks\data\reports\BattingEdge - Inference Optimization & Validation Report.pdf
+  • BattingEdge Biomechanical Diagnostic Report.pdf (331.59 KB)
+    Path: notebooks\data\reports\BattingEdge Biomechanical Diagnostic Report.pdf
+  • BATTINGEDGE PROJECT AUDIT.pdf (230.73 KB)
+    Path: notebooks\data\reports\BATTINGEDGE PROJECT AUDIT.pdf
+  • BattingEdge V8p.pdf (239.25 KB)
+    Path: notebooks\data\reports\BattingEdge V8p.pdf
+  • Project so far... 2.0.pdf (256.21 KB)
+    Path: notebooks\data\reports\Project so far... 2.0.pdf
+  • Project so far... 3.0.pdf (368.98 KB)
+    Path: notebooks\data\reports\Project so far... 3.0.pdf
+  • Project so far....pdf (326.52 KB)
+    Path: notebooks\data\reports\Project so far....pdf
+  • Training v1 Report.pdf (212.42 KB)
+    Path: notebooks\data\reports\Training v1 Report.pdf
+  • Training v2-v3 Report.pdf (269.10 KB)
+    Path: notebooks\data\reports\Training v2-v3 Report.pdf
+  • Training V4 Report.pdf (359.25 KB)
+    Path: notebooks\data\reports\Training V4 Report.pdf
+  • Training V5 Report.pdf (357.89 KB)
+    Path: notebooks\data\reports\Training V5 Report.pdf
+  • Training V6 Report.pdf (284.03 KB)
+    Path: notebooks\data\reports\Training V6 Report.pdf
+  • Training V7 Report.pdf (258.95 KB)
+    Path: notebooks\data\reports\Training V7 Report.pdf
+  • Training V8 Report.pdf (331.39 KB)
+    Path: notebooks\data\reports\Training V8 Report.pdf
+  • back.pdf (1.58 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\back.pdf
+  • filesave.pdf (1.69 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\filesave.pdf
+  • forward.pdf (1.59 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\forward.pdf
+  • hand.pdf (4.07 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\hand.pdf
+  • help.pdf (1.77 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\help.pdf
+  • home.pdf (1.70 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\home.pdf
+  • matplotlib.pdf (22.32 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\matplotlib.pdf
+  • move.pdf (1.82 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\move.pdf
+  • qt4_editor_options.pdf (1.53 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\qt4_editor_options.pdf
+  • subplots.pdf (1.67 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\subplots.pdf
+  • zoom_to_rect.pdf (1.57 KB)
+    Path: venv\Lib\site-packages\matplotlib\mpl-data\images\zoom_to_rect.pdf
+
+🖼️ IMAGE FILES
+--------------------------------------------------------------------------------
+Total images: 68
+  • backend\models\training_history_V8p.png
+  • data\reports\class_distribution_comparison_V3.png
+  • data\reports\confusion_matrix_20251122_000925.png
+  • data\reports\confusion_matrix_error_model.png
+  • data\reports\confusion_matrix_normalized_V4_lstm.png
+  • data\reports\confusion_matrix_test_V5.png
+  • data\reports\confusion_matrix_V3_smote.png
+  • data\reports\confusion_matrix_V4_lstm.png
+  • data\reports\confusion_matrix_V6.png
+  • data\reports\confusion_matrix_V7_DIAGNOSTIC.png
+  ... and 58 more
+
+🐍 PYTHON FILES
+--------------------------------------------------------------------------------
+  • create_defense_demos.py
+    Path: backend\create_defense_demos.py
+  • feature_extractor_v8p.py
+    Path: backend\feature_extractor_v8p.py
+  • inference.py
+    Path: backend\inference.py
+  • test_inference.py
+    Path: backend\test_inference.py
+  • cleanup_project.py
+    Path: data\cleanup_project.py
+  • analyze_project.py.py
+    Path: scripts\analyze_project.py.py
+
+================================================================================
+END OF REPORT
+================================================================================

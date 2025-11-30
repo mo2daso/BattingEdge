@@ -1,0 +1,15 @@
+{
+  "classes": [
+    "drive",
+    "pull",
+    "cut",
+    "sweep"
+  ],
+  "sequence_length": 50,
+  "features_dim": 103,
+  "train_samples": 1520,
+  "val_samples": 150,
+  "test_samples": 219,
+  "test_accuracy": 78.08219178082192,
+  "epochs_trained": 18
+}

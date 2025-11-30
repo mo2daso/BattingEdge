@@ -1,0 +1,12 @@
+Test Accuracy: 70.18%
+
+              precision    recall  f1-score   support
+
+         cut     0.6875    0.5500    0.6111        60
+       drive     0.6623    0.6986    0.6800        73
+        pull     0.7619    0.8000    0.7805        60
+       sweep     0.7000    0.8400    0.7636        25
+
+    accuracy                         0.7018       218
+   macro avg     0.7029    0.7222    0.7088       218
+weighted avg     0.7010    0.7018    0.6983       218

@@ -1,0 +1,30 @@
+# BattingEdge FYP - Dependencies
+# Core Computer Vision
+opencv-python
+mediapipe
+ultralytics
+pillow
+
+# Data Science & Arrays
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+
+# Deep Learning (Backend Models)
+tensorflow
+keras
+
+# Backend API
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Utilities
+tqdm
+joblib
+datasets

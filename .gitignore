@@ -1,0 +1,36 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+
+# OS
+.DS_Store
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+
+# --- Project Data, Media & Logs (NEW) ---
+
+# 1. Ignore all log files and folders
+logs/
+*.log
+
+# 2. Ignore the large RAW video data folders
+# (This ignores your 225 videos AND the 1,750 videos)
+data/videos_for_error_labeling/
+data/videos_for_shot_classifier/
+data/demo_video/
+
+# 3. Ignore the processed .npy feature files
+# (This ignores the ~1750 files you just made AND the 225 from before)
+data/features/
+
+# 4. Ignore generated reports that are not text/images
+# We want to KEEP .png, .txt, and .csv files, but ignore videos
+data/reports/*.mp4
+data/reports/*.avi
+data/reports/*.json

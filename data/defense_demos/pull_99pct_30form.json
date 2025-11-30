@@ -1,0 +1,42 @@
+{
+    "prediction": "pull",
+    "confidence": 99.99775695800781,
+    "all_probabilities": {
+        "cut": 0.0002572671219240874,
+        "drive": 0.0017092004418373108,
+        "pull": 99.99775695800781,
+        "sweep": 0.00026932527543976903
+    },
+    "frames": 55,
+    "form_analysis": {
+        "overall_score": 30,
+        "checks": [
+            {
+                "name": "Elbow",
+                "value": "46\u00b0",
+                "is_error": true
+            },
+            {
+                "name": "Head",
+                "value": "101cm",
+                "is_error": true
+            },
+            {
+                "name": "BackFoot",
+                "value": "71cm",
+                "is_error": true
+            },
+            {
+                "name": "Hips",
+                "value": "336\u00b0",
+                "is_error": false
+            },
+            {
+                "name": "Finish",
+                "value": "Low",
+                "is_error": true
+            }
+        ],
+        "summary": "Form needs significant correction on stability and timing."
+    }
+}
