@@ -1,0 +1,61 @@
+{
+  "prediction": "cut",
+  "confidence": 98.41758728027344,
+  "all_probabilities": {
+    "cut": 98.41758728027344,
+    "drive": 1.5610300302505493,
+    "pull": 0.017326872795820236,
+    "sweep": 0.004058603197336197
+  },
+  "frames": 44,
+  "form_analysis": {
+    "overall_score": 25,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "25\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your front elbow is too bent ('chicken wing'). This significantly reduces power. Practice the 'wall drill' - stand near a wall and practice your swing ensuring your front arm extends fully without hitting the wall."
+      },
+      {
+        "name": "Head",
+        "value": "21cm",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your head is moving too much (dipping or falling away). This causes you to lose sight of the ball. Practice the 'nose over toes' drill - your nose should stay over your front toe throughout the shot. Try batting with a cap and place a tennis ball on top to train stability."
+      },
+      {
+        "name": "BackFoot",
+        "value": "4cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "3\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "You need much more hip rotation. You're mostly using your arms, which limits power significantly. Think 'hips lead, hands follow'. Practice shadow shots focusing ONLY on hip rotation first, then add the arms. Watch videos of professional batters in slow motion to see how early and aggressive their hip turn is."
+      },
+      {
+        "name": "Finish",
+        "value": "Low",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your follow-through is incomplete - hands stopping low. This means you're decelerating through the shot, losing power. Practice 'full swing drills' where you exaggerate the follow-through. Your hands should finish HIGH - near or above your opposite shoulder. Think 'throw the bat over your shoulder' (but controlled!)."
+      }
+    ],
+    "summary": "Form needs significant correction on stability and timing.",
+    "enhanced_summary": "\u274c Form needs significant work. Don't worry - everyone starts somewhere! Focus on improving: Elbow, Head, Hips, Finish. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 44,
+    "duration": 1.4666666666666666,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "cut (6).mp4",
+  "analysis_date": "2025-12-03T18:10:49.133120"
+}

@@ -1,0 +1,61 @@
+{
+  "prediction": "cut",
+  "confidence": 98.02236938476562,
+  "all_probabilities": {
+    "cut": 98.02236938476562,
+    "drive": 1.9522866010665894,
+    "pull": 0.020346665754914284,
+    "sweep": 0.00500018335878849
+  },
+  "frames": 44,
+  "form_analysis": {
+    "overall_score": 60,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "159\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Your front arm extension is excellent! This positioning allows maximum power transfer through the shot. Keep practicing this form."
+      },
+      {
+        "name": "Head",
+        "value": "21cm",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your head is moving too much (dipping or falling away). This causes you to lose sight of the ball. Practice the 'nose over toes' drill - your nose should stay over your front toe throughout the shot. Try batting with a cap and place a tennis ball on top to train stability."
+      },
+      {
+        "name": "BackFoot",
+        "value": "4cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "95\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Perfect hip rotation! You're generating excellent power through your lower body. This aggressive rotation is exactly what's needed for this shot."
+      },
+      {
+        "name": "Finish",
+        "value": "Low",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your follow-through is incomplete - hands stopping low. This means you're decelerating through the shot, losing power. Practice 'full swing drills' where you exaggerate the follow-through. Your hands should finish HIGH - near or above your opposite shoulder. Think 'throw the bat over your shoulder' (but controlled!)."
+      }
+    ],
+    "summary": "Good form with minor technical adjustments needed.",
+    "enhanced_summary": "\u26a0\ufe0f Decent attempt but several technical issues to address. Focus on improving: Head, Finish. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 44,
+    "duration": 1.4666666666666666,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "cut (6).mp4",
+  "analysis_date": "2025-12-03T18:10:58.982611"
+}

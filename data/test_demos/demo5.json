@@ -1,0 +1,61 @@
+{
+  "prediction": "cut",
+  "confidence": 98.96619415283203,
+  "all_probabilities": {
+    "cut": 98.96619415283203,
+    "drive": 1.0228646993637085,
+    "pull": 0.007943371310830116,
+    "sweep": 0.0029999776743352413
+  },
+  "frames": 23,
+  "form_analysis": {
+    "overall_score": 100,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "119\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Your front arm extension is excellent! This positioning allows maximum power transfer through the shot. Keep practicing this form."
+      },
+      {
+        "name": "Head",
+        "value": "5cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Great head stability! Your eyes stayed level throughout the shot, which is crucial for tracking the ball and timing. This is textbook technique."
+      },
+      {
+        "name": "BackFoot",
+        "value": "0cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "318\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Perfect hip rotation! You're generating excellent power through your lower body. This aggressive rotation is exactly what's needed for this shot."
+      },
+      {
+        "name": "Finish",
+        "value": "High",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Beautiful high finish! Your hands completed the full arc, showing complete commitment to the shot. This maximizes power and control."
+      }
+    ],
+    "summary": "Pro-level form! Excellent mechanics.",
+    "enhanced_summary": "\ud83c\udf1f Excellent form! You're executing this shot at a high level. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 23,
+    "duration": 0.7666666666666667,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "cut (3).mp4",
+  "analysis_date": "2025-12-03T18:10:01.595181"
+}

@@ -1,0 +1,61 @@
+{
+  "prediction": "drive",
+  "confidence": 94.93083953857422,
+  "all_probabilities": {
+    "cut": 4.914283752441406,
+    "drive": 94.93083953857422,
+    "pull": 0.14579927921295166,
+    "sweep": 0.00908159650862217
+  },
+  "frames": 54,
+  "form_analysis": {
+    "overall_score": 80,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "111\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Your front arm extension is excellent! This positioning allows maximum power transfer through the shot. Keep practicing this form."
+      },
+      {
+        "name": "Head",
+        "value": "16cm",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your head is moving too much (dipping or falling away). This causes you to lose sight of the ball. Practice the 'nose over toes' drill - your nose should stay over your front toe throughout the shot. Try batting with a cap and place a tennis ball on top to train stability."
+      },
+      {
+        "name": "BackFoot",
+        "value": "2cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "60\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Perfect hip rotation! You're generating excellent power through your lower body. This aggressive rotation is exactly what's needed for this shot."
+      },
+      {
+        "name": "Finish",
+        "value": "High",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Beautiful high finish! Your hands completed the full arc, showing complete commitment to the shot. This maximizes power and control."
+      }
+    ],
+    "summary": "Good form with minor technical adjustments needed.",
+    "enhanced_summary": "\ud83d\udc4d Good form overall with room for fine-tuning. Focus on improving: Head. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 54,
+    "duration": 1.8,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "drive (7).mp4",
+  "analysis_date": "2025-12-03T18:13:41.147199"
+}

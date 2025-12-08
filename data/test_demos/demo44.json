@@ -1,0 +1,61 @@
+{
+  "prediction": "drive",
+  "confidence": 81.79083251953125,
+  "all_probabilities": {
+    "cut": 18.011180877685547,
+    "drive": 81.79083251953125,
+    "pull": 0.19283434748649597,
+    "sweep": 0.00515759689733386
+  },
+  "frames": 29,
+  "form_analysis": {
+    "overall_score": 65,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "88\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your front elbow is too bent ('chicken wing'). This significantly reduces power. Practice the 'wall drill' - stand near a wall and practice your swing ensuring your front arm extends fully without hitting the wall."
+      },
+      {
+        "name": "Head",
+        "value": "11cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Great head stability! Your eyes stayed level throughout the shot, which is crucial for tracking the ball and timing. This is textbook technique."
+      },
+      {
+        "name": "BackFoot",
+        "value": "1cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "3\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "You need much more hip rotation. You're mostly using your arms, which limits power significantly. Think 'hips lead, hands follow'. Practice shadow shots focusing ONLY on hip rotation first, then add the arms. Watch videos of professional batters in slow motion to see how early and aggressive their hip turn is."
+      },
+      {
+        "name": "Finish",
+        "value": "High",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Beautiful high finish! Your hands completed the full arc, showing complete commitment to the shot. This maximizes power and control."
+      }
+    ],
+    "summary": "Good form with minor technical adjustments needed.",
+    "enhanced_summary": "\u26a0\ufe0f Decent attempt but several technical issues to address. Focus on improving: Elbow, Hips. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 29,
+    "duration": 0.9666666666666667,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "pull (6).mp4",
+  "analysis_date": "2025-12-03T18:17:01.174073"
+}

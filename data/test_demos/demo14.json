@@ -1,0 +1,61 @@
+{
+  "prediction": "cut",
+  "confidence": 98.50885009765625,
+  "all_probabilities": {
+    "cut": 98.50885009765625,
+    "drive": 1.4679532051086426,
+    "pull": 0.018886398524045944,
+    "sweep": 0.0043058027513325214
+  },
+  "frames": 44,
+  "form_analysis": {
+    "overall_score": 45,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "45\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your front elbow is too bent ('chicken wing'). This significantly reduces power. Practice the 'wall drill' - stand near a wall and practice your swing ensuring your front arm extends fully without hitting the wall."
+      },
+      {
+        "name": "Head",
+        "value": "20cm",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your head is moving too much (dipping or falling away). This causes you to lose sight of the ball. Practice the 'nose over toes' drill - your nose should stay over your front toe throughout the shot. Try batting with a cap and place a tennis ball on top to train stability."
+      },
+      {
+        "name": "BackFoot",
+        "value": "4cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "92\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Perfect hip rotation! You're generating excellent power through your lower body. This aggressive rotation is exactly what's needed for this shot."
+      },
+      {
+        "name": "Finish",
+        "value": "Low",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your follow-through is incomplete - hands stopping low. This means you're decelerating through the shot, losing power. Practice 'full swing drills' where you exaggerate the follow-through. Your hands should finish HIGH - near or above your opposite shoulder. Think 'throw the bat over your shoulder' (but controlled!)."
+      }
+    ],
+    "summary": "Form needs significant correction on stability and timing.",
+    "enhanced_summary": "\u274c Form needs significant work. Don't worry - everyone starts somewhere! Focus on improving: Elbow, Head, Finish. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 44,
+    "duration": 1.4666666666666666,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "cut.mp4",
+  "analysis_date": "2025-12-03T18:11:18.148550"
+}

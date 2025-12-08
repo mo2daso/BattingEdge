@@ -1,8 +1,6 @@
 # ===========================
-# BATTING EDGE - GIT IGNORE
+# 1. PYTHON & SYSTEM GARBAGE
 # ===========================
-
-# --- 1. System & Python Garbage ---
 __pycache__/
 *.py[cod]
 *$py.class
@@ -12,43 +10,72 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
 
-# --- 2. Heavy Data & Features (CRITICAL) ---
-# We keep the folder structure, but ignore the contents
-data/features/
+# ===========================
+# 2. FRONTEND (REACT/NODE)
+# ===========================
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.eslintcache
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ===========================
+# 3. BACKEND DATA & LOGS
+# ===========================
+# User uploads and generated outputs should stay local
+backend/uploads/
+backend/outputs/
+# Local Database
+backend/shot_analysis.db
+*.sqlite3
+# Logs
+logs/
+*.log
+
+# ===========================
+# 4. HEAVY DATASETS & FEATURES
+# ===========================
+# Ignore the raw training data and extracted features
 data/dataset_*/
-# Ignore all numpy arrays anywhere in the project
-*.npy
-*.npz
-
-# --- 3. Video Assets ---
-# Ignore raw testing clips (Local only)
+data/features/
 data/raw_test_clips/
 data/unprofvids/
-# Ignore generated demo outputs
+data/unprofessional_test/
+
+# ===========================
+# 5. GENERATED DEMOS
+# ===========================
+# Ignore the output videos generated for defense
 data/demo_outputs/
 data/defense_demos/
-# Ignore all video formats to prevent accidental uploads
+data/demo_videos/
+
+# ===========================
+# 6. GLOBAL FILE BANS (HEAVY)
+# ===========================
+# Block all videos and heavy arrays everywhere
 *.mp4
 *.avi
 *.mov
 *.mkv
-
-# --- 4. Logs & Reports ---
-logs/
-*.log
-# Ignore temporary audit files if you forgot to delete them
-FULL_DEEP_AUDIT_REPORT.json
-project_inventory.json
-COMPLETE MASTER PLAN.pdf
-
-# --- 5. Models (Selective) ---
-# We WANT to upload your final V8p models because they are small (<100MB).
-# But we IGNORE intermediate checkpoints or huge training buffers.
-backend/models/checkpoints/
-*.h5
-
-# --- 6. Archives ---
-archive/
+*.npy
+*.npz
 *.zip
 *.rar
+
+# ===========================
+# 7. MODELS (SELECTIVE)
+# ===========================
+# Ignore heavy Neural Network weights (>100MB usually)
+backend/models/*.keras
+backend/models/*.h5
+backend/models/*.pt
+backend/models/checkpoints/
+
+# !IMPORTANT! KEEP these tiny files required for the logic to run:
+!backend/models/*.pkl
+!backend/models/*.json

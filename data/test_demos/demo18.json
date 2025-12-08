@@ -1,0 +1,61 @@
+{
+  "prediction": "drive",
+  "confidence": 99.73974609375,
+  "all_probabilities": {
+    "cut": 0.25981029868125916,
+    "drive": 99.73974609375,
+    "pull": 0.0004104159015696496,
+    "sweep": 4.0303908463101834e-05
+  },
+  "frames": 63,
+  "form_analysis": {
+    "overall_score": 65,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "96\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your front elbow is too bent ('chicken wing'). This significantly reduces power. Practice the 'wall drill' - stand near a wall and practice your swing ensuring your front arm extends fully without hitting the wall."
+      },
+      {
+        "name": "Head",
+        "value": "13cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Great head stability! Your eyes stayed level throughout the shot, which is crucial for tracking the ball and timing. This is textbook technique."
+      },
+      {
+        "name": "BackFoot",
+        "value": "4cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "29\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Perfect hip rotation! You're generating excellent power through your lower body. This aggressive rotation is exactly what's needed for this shot."
+      },
+      {
+        "name": "Finish",
+        "value": "Low",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "Your follow-through is incomplete - hands stopping low. This means you're decelerating through the shot, losing power. Practice 'full swing drills' where you exaggerate the follow-through. Your hands should finish HIGH - near or above your opposite shoulder. Think 'throw the bat over your shoulder' (but controlled!)."
+      }
+    ],
+    "summary": "Good form with minor technical adjustments needed.",
+    "enhanced_summary": "\u26a0\ufe0f Decent attempt but several technical issues to address. Focus on improving: Elbow, Finish. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 63,
+    "duration": 2.1,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "drive (2).mp4",
+  "analysis_date": "2025-12-03T18:12:01.404633"
+}

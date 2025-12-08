@@ -1,0 +1,61 @@
+{
+  "prediction": "drive",
+  "confidence": 97.6547622680664,
+  "all_probabilities": {
+    "cut": 2.3414857387542725,
+    "drive": 97.6547622680664,
+    "pull": 0.003476200858131051,
+    "sweep": 0.0002635881246533245
+  },
+  "frames": 53,
+  "form_analysis": {
+    "overall_score": 80,
+    "checks": [
+      {
+        "name": "Elbow",
+        "value": "141\u00b0",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Your front arm extension is excellent! This positioning allows maximum power transfer through the shot. Keep practicing this form."
+      },
+      {
+        "name": "Head",
+        "value": "14cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Great head stability! Your eyes stayed level throughout the shot, which is crucial for tracking the ball and timing. This is textbook technique."
+      },
+      {
+        "name": "BackFoot",
+        "value": "5cm",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Excellent back foot stability! Your base is solid, allowing proper weight transfer. This foundation is key to generating power."
+      },
+      {
+        "name": "Hips",
+        "value": "4\u00b0",
+        "is_error": true,
+        "severity": "major",
+        "detailed_advice": "You need much more hip rotation. You're mostly using your arms, which limits power significantly. Think 'hips lead, hands follow'. Practice shadow shots focusing ONLY on hip rotation first, then add the arms. Watch videos of professional batters in slow motion to see how early and aggressive their hip turn is."
+      },
+      {
+        "name": "Finish",
+        "value": "High",
+        "is_error": false,
+        "severity": "none",
+        "detailed_advice": "Beautiful high finish! Your hands completed the full arc, showing complete commitment to the shot. This maximizes power and control."
+      }
+    ],
+    "summary": "Good form with minor technical adjustments needed.",
+    "enhanced_summary": "\ud83d\udc4d Good form overall with room for fine-tuning. Focus on improving: Hips. Keep practicing and you'll see improvement!"
+  },
+  "video_info": {
+    "fps": 30.0,
+    "frames": 53,
+    "duration": 1.7666666666666666,
+    "resolution": "1920x1080"
+  },
+  "original_filename": "drive (4).mp4",
+  "analysis_date": "2025-12-03T18:12:32.195506"
+}
