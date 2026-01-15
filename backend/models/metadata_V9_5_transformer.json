@@ -1,0 +1,26 @@
+{
+  "version": "V9.5",
+  "algorithm": "transformer",
+  "features": "99 raw pose + 8 angles (no velocities)",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 81.74603174603175,
+  "per_class_accuracy": {
+    "Cover Drive": 74.35897435897436,
+    "Cut Shot": 76.5432098765432,
+    "Defense": 82.66666666666667,
+    "Pull Shot": 83.09859154929578,
+    "Sweep Shot": 93.15068493150685
+  },
+  "hyperparameters": {
+    "epochs": 70,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "heads": 4
+  }
+}

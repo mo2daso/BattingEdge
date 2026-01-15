@@ -1,0 +1,17 @@
+{
+  "version": "V9.5 Stacking",
+  "base_models": [
+    "lstm",
+    "xgboost",
+    "rf"
+  ],
+  "meta_learner": "LogisticRegression",
+  "test_accuracy": 94.70899470899471,
+  "per_class_accuracy": {
+    "Cover Drive": 88.46153846153845,
+    "Cut Shot": 95.06172839506173,
+    "Defense": 97.33333333333334,
+    "Pull Shot": 92.95774647887323,
+    "Sweep Shot": 100.0
+  }
+}

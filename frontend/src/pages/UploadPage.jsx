@@ -6,29 +6,33 @@ import Features from '../components/Features';
 
 const UploadPage = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-cricket-dark transition-colors duration-300">
+    <div className="min-h-screen bg-jet-black text-white selection:bg-neon-blue selection:text-black">
       <Navbar />
       
-      <main className="flex-grow flex flex-col items-center relative overflow-hidden">
-        {/* Background Gradients */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cricket-green/10 rounded-full blur-[128px] pointer-events-none"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[128px] pointer-events-none"></div>
-
-        <div className="w-full pt-12 pb-6 z-10">
-            <Hero />
-        </div>
-        
-        <div className="w-full px-4 flex justify-center pb-20 z-10">
+      {/* Hero & Upload Section */}
+      <div className="relative pt-24 pb-20 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
+          <Hero />
+          
+          {/* Added ID here for the scroll target */}
+          <div id="upload-zone" className="mt-[-40px] relative z-20 scroll-mt-32">
             <UploadZone />
+          </div>
         </div>
-        
-        <div className="w-full bg-white dark:bg-cricket-card/50 border-t border-gray-200 dark:border-white/5 z-10">
-            <Features />
+      </div>
+
+      {/* Features Section */}
+      <Features />
+
+      {/* Footer */}
+      <footer className="py-8 bg-jet-black border-t border-white/10 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
+          <img src="/logo.png" alt="Logo" className="w-6 h-6 grayscale" />
+          <span className="font-bold text-sm">BattingEdge AI</span>
         </div>
-      </main>
-      
-      <footer className="py-6 text-center text-gray-500 dark:text-gray-600 text-sm bg-white dark:bg-cricket-dark border-t border-gray-200 dark:border-white/5">
-        <p>© 2025 BattingEdge AI. Final Year Project.</p>
+        <p className="text-xs text-gray-600">
+          © 2026 BattingEdge. All rights reserved. Final Year Project.
+        </p>
       </footer>
     </div>
   );

@@ -4,355 +4,440 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import joblib
-import random
 import logging
-import math
 from pathlib import Path
-from ultralytics import YOLO
+from xgboost import XGBClassifier
 import mediapipe as mp
+from shot_rules import ShotRules
 
 # ==========================================
-# 1. CONFIGURATION
+# CONFIGURATION
 # ==========================================
 SEQUENCE_LENGTH = 50
-FEATURES_DIM = 103 
+FEATURES_DIM = 107
+HEIGHT_SCALE = 175.0 
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-logger = logging.getLogger("Inference")
-
-# Initialize Models
-yolo_model = YOLO('yolov8n.pt')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("EnsembleInference")
 
 mp_pose = mp.solutions.pose
-pose_model = mp_pose.Pose(
-    static_image_mode=False,
-    model_complexity=1, 
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
+mp_drawing = mp.solutions.drawing_utils
 
 # ==========================================
-# 2. COACHING INTELLIGENCE (Humanized)
+# YOLO IMPORT (OPTIONAL - ONLY FOR OVERLAY)
 # ==========================================
-COACHING_ADVICE = {
-    "Elbow": {
-        "good": "Perfect! Your arms are fully extended, giving you maximum power.",
-        "minor": "Good shot, but try to reach out a little more towards the ball.",
-        "major": "Your arms are too close to your body ('Chicken Wing'). Try to extend your hands towards the bowler!"
-    },
-    "Head": {
-        "good": "Excellent focus! Your head stayed perfectly still.",
-        "minor": "Your head dropped a little bit. Try to keep your chin up.",
-        "major": "Your head is falling over. Imagine balancing a glass of water on your helmet—keep it steady!"
-    },
-    "BackFoot": {
-        "good": "Great balance! Your feet stayed planted.",
-        "minor": "Your back heel lifted a bit early. Try to keep it grounded longer.",
-        "major": "You are jumping at the ball! Keep your back foot stuck to the ground to generate more power."
-    },
-    "Hips": {
-        "good": "Amazing power! You used your hips perfectly.",
-        "minor": "Try to twist your hips a little faster to hit the ball harder.",
-        "major": "You are using only your arms. Turn your belt buckle towards the bowler to unlock your real power!"
-    },
-    "Finish": {
-        "good": "Beautiful high finish! That's a textbook shot.",
-        "minor": "Your hands finished a bit low. Try to swing through the line of the ball.",
-        "major": "You stopped your swing too early. Throw your hands high over your shoulder like a pro!"
-    }
-}
+try:
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
+except ImportError:
+    YOLO_AVAILABLE = False
+    logger.warning("⚠️ ultralytics not installed. YOLO box will be disabled.")
 
+# ==========================================
+# GEOMETRY FUNCTIONS (UNCHANGED - YOUR LOGIC)
+# ==========================================
+def calculate_dot_product_angle(a, b, c):
+    """3D Dot Product Angle (0-180) - Matches Training Logic for Limbs"""
+    a = np.array([a.x, a.y])
+    b = np.array([b.x, b.y])
+    c = np.array([c.x, c.y])
+    
+    ba = a - b
+    bc = c - b
+    
+    cosine = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
+    angle = np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+    return angle
+
+def calculate_planar_angle(a, b):
+    """2D Orientation Angle (Arctan2) - Matches Training Logic for Body"""
+    return np.degrees(np.arctan2(a.y - b.y, a.x - b.x))
+
+# ==========================================
+# BIOMECHANICS ANALYZER (UNCHANGED)
+# ==========================================
 class BiomechanicsAnalyzer:
     def __init__(self):
-        self.height_scale = 175.0 
-
-    def calculate_angle(self, a, b, c):
-        a, b, c = np.array(a), np.array(b), np.array(c)
-        radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
-        angle = np.abs(radians*180.0/np.pi)
-        if angle > 180.0: angle = 360 - angle
-        return angle
+        self.height_scale = HEIGHT_SCALE
 
     def analyze(self, landmarks_seq, shot_type):
+        if not landmarks_seq or len(landmarks_seq) < 3:
+            return self._get_empty_analysis("Insufficient data")
+        
+        # Key Frames (YOUR LOGIC - UNCHANGED)
+        start = landmarks_seq[0]
+        impact = landmarks_seq[len(landmarks_seq) // 2]
+        
+        metrics = {}
+        try:
+            # 1. ANGLES (YOUR LOGIC - UNCHANGED)
+            metrics['elbow_angle'] = calculate_dot_product_angle(impact[12], impact[14], impact[16])
+            metrics['front_knee'] = calculate_dot_product_angle(impact[23], impact[25], impact[27])
+            
+            # 2. ORIENTATION (YOUR LOGIC - UNCHANGED)
+            metrics['bat_angle'] = abs(calculate_planar_angle(impact[16], impact[12]))
+            
+            # 3. MOVEMENT (YOUR LOGIC - UNCHANGED)
+            nose_y = [p.y for p in landmarks_seq]
+            metrics['head_drift'] = (max(nose_y) - min(nose_y)) * self.height_scale
+            metrics['back_lift'] = abs(start[28].y - min([p.y for p in landmarks_seq])) * self.height_scale
+            
+            # 4. ROTATION (YOUR LOGIC - UNCHANGED)
+            hip_start = calculate_planar_angle(start[24], start[23])
+            hip_end = calculate_planar_angle(impact[24], impact[23])
+            metrics['hip_rotation'] = abs(hip_end - hip_start)
+            
+            # 5. BOOLEANS (YOUR LOGIC - UNCHANGED)
+            metrics['wrist_above_elbow'] = impact[16].y < impact[14].y
+            metrics['head_over_ball'] = abs(impact[0].x - impact[25].x) < 0.1
+            metrics['weight_forward'] = abs(impact[0].x - impact[27].x) < abs(impact[0].x - impact[28].x)
+            metrics['front_foot_forward'] = abs(impact[27].x - start[27].x) > 0.05
+            metrics['backlift'] = metrics['back_lift']
+
+        except:
+            pass
+
+        # Call new analyze_shot
+        grading = ShotRules.analyze_shot(metrics, shot_type)
+        
+        # Handle new ShotRules output format
         checks = []
-        improvements = []
-        score = 100
-        
-        if not landmarks_seq: 
-            return {"overall_score": 0, "checks": [], "key_improvements": [], "summary": "No data"}
-        
-        impact_idx = len(landmarks_seq) // 2 
-        start_frame = landmarks_seq[0]
-        impact_frame = landmarks_seq[impact_idx]
-        final_frame = landmarks_seq[-1]
-
-        # 1. FRONT ELBOW
-        s, e, w = impact_frame[12][:2], impact_frame[14][:2], impact_frame[16][:2]
-        elbow_angle = self.calculate_angle(s, e, w)
-        severity = "good"
-        if elbow_angle < 110: severity = "major"; score -= 15
-        elif elbow_angle < 120: severity = "minor"; score -= 5
-        
-        checks.append({
-            "name": "Front Elbow Extension", 
-            "value": f"{int(elbow_angle)}°", 
-            "ideal": "120° - 140°",  # <--- NEW FIELD
-            "is_error": severity != "good", 
-            "advice": COACHING_ADVICE["Elbow"][severity]
-        })
-        if severity != "good": improvements.append(COACHING_ADVICE["Elbow"][severity])
-
-        # 2. HEAD STABILITY
-        nose_y = [f[0][1] for f in landmarks_seq]
-        drift = (max(nose_y) - min(nose_y)) * self.height_scale
-        severity = "good"
-        if drift > 15: severity = "major"; score -= 20
-        elif drift > 10: severity = "minor"; score -= 10
-        
-        checks.append({
-            "name": "Head Stability", 
-            "value": f"{int(drift)}cm drift", 
-            "ideal": "< 10cm movement", # <--- NEW FIELD
-            "is_error": severity != "good", 
-            "advice": COACHING_ADVICE["Head"][severity]
-        })
-        if severity != "good": improvements.append(COACHING_ADVICE["Head"][severity])
-
-        # 3. BACK FOOT
-        lift = (start_frame[28][1] - min([f[28][1] for f in landmarks_seq])) * self.height_scale
-        severity = "good"
-        if lift > 10: severity = "major"; score -= 15
-        elif lift > 5: severity = "minor"; score -= 5
-        
-        checks.append({
-            "name": "Back Foot Stability", 
-            "value": f"{int(lift)}cm lift", 
-            "ideal": "< 5cm lift", # <--- NEW FIELD
-            "is_error": severity != "good", 
-            "advice": COACHING_ADVICE["BackFoot"][severity]
-        })
-        if severity != "good": improvements.append(COACHING_ADVICE["BackFoot"][severity])
-
-        # 4. HIP ROTATION
-        def hip_ang(f): return np.degrees(np.arctan2(f[24][1]-f[23][1], f[24][0]-f[23][0]))
-        rot = abs(hip_ang(start_frame) - hip_ang(impact_frame))
-        thresh = 60 if shot_type == 'pull' else 30
-        
-        severity = "good"
-        if rot < (thresh - 15): severity = "major"; score -= 20
-        elif rot < thresh: severity = "minor"; score -= 10
-        
-        checks.append({
-            "name": "Hip Rotation", 
-            "value": f"{int(rot)}°", 
-            "ideal": f"> {thresh}°", # <--- DYNAMIC FIELD
-            "is_error": severity != "good", 
-            "advice": COACHING_ADVICE["Hips"][severity]
-        })
-        if severity != "good": improvements.append(COACHING_ADVICE["Hips"][severity])
-
-        # 5. FOLLOW THROUGH
-        high_hands = (final_frame[12][1] - final_frame[16][1]) * self.height_scale
-        severity = "good"
-        if high_hands < -5: severity = "major"; score -= 20
-        elif high_hands < 0: severity = "minor"; score -= 5
-        
-        checks.append({
-            "name": "Follow Through", 
-            "value": "High" if high_hands > 0 else "Low", 
-            "ideal": "Hands > Shoulders", # <--- NEW FIELD
-            "is_error": severity != "good", 
-            "advice": COACHING_ADVICE["Finish"][severity]
-        })
-        if severity != "good": improvements.append(COACHING_ADVICE["Finish"][severity])
-
-        final_score = max(0, score)
-        if final_score >= 85: summary = "Pro-level form! Minimal adjustments needed."
-        elif final_score >= 70: summary = "Good technique. Focus on the key improvements below."
-        else: summary = "Needs work on fundamentals to improve stability."
+        for check_item in grading.get('checks', []):
+            checks.append({
+                "name": check_item.get('name', 'Metric'),
+                "value": check_item.get('value', 'N/A'),
+                "ideal_range": check_item.get('ideal_range', 'N/A'),
+                "status": check_item.get('status', 'Unknown'),
+                "is_error": check_item.get('is_error', False),
+                "advice": check_item.get('advice', 'Keep practicing.')
+            })
 
         return {
-            "overall_score": final_score, 
+            "overall_score": grading.get('overall_score', 70),
+            "performance_level": grading.get('performance_level', 'Good'),
+            "grade": grading.get('grade', 'B'),
             "checks": checks,
-            "key_improvements": improvements,
-            "summary": summary
+            "key_improvements": grading.get('key_improvements', []),
+            "strengths": grading.get('strengths', []),
+            "summary": grading.get('summary', f"Analysis for {shot_type}"),
+            "recommended_drills": grading.get('recommended_drills', []),
+            "detailed_metrics": metrics
+        }
+
+    def _get_empty_analysis(self, reason):
+        return {
+            "overall_score": 0,
+            "performance_level": "N/A",
+            "grade": "F",
+            "checks": [],
+            "summary": reason,
+            "key_improvements": [],
+            "strengths": [],
+            "recommended_drills": []
         }
 
 # ==========================================
-# 3. EXTRACTION & OVERLAY
+# ENSEMBLE CLASSIFIER (UNCHANGED)
 # ==========================================
-def get_initial_batsman_box(frame):
-    height, width, _ = frame.shape
-    center_x = width // 2
-    results = yolo_model(frame, verbose=False, classes=[0, 34])
-    best_box, max_score = None, -1
-    for result in results:
-        for box in result.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            aspect_ratio = (y2 - y1) / ((x2 - x1) + 1e-6)
-            dist_score = 1.0 - (abs(center_x - ((x1+x2)//2)) / width)
-            cls_bonus = 20 if int(box.cls[0]) == 34 else 0
-            score = (aspect_ratio * 2.0) + dist_score + cls_bonus
-            if score > max_score:
-                max_score = score
-                best_box = (x1, y1, x2, y2)
-    return best_box
-
-def extract_features_full_frame(video_path):
-    cap = cv2.VideoCapture(str(video_path))
-    skeleton, biomech, raw_lms = [], [], []
-    while True:
-        ret, frame = cap.read()
-        if not ret: break
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        res = pose_model.process(rgb)
-        if not res.pose_landmarks: continue
-        lms = res.pose_landmarks.landmark
-        raw_lms.append([(lm.x, lm.y, lm.z) for lm in lms])
-        pose_vec = []
-        for lm in lms: pose_vec.extend([lm.x, lm.y, lm.z])
-        skeleton.append(pose_vec)
-        # Biomech
-        lw, rw = np.array([lms[15].x, lms[15].y]), np.array([lms[16].x, lms[16].y])
-        ls, rs = np.array([lms[11].x, lms[11].y]), np.array([lms[12].x, lms[12].y])
-        lf, rf = np.array([lms[31].x, lms[31].y]), np.array([lms[32].x, lms[32].y])
-        wrist_vel = 0.0
-        if len(biomech) > 0:
-            p_lw, p_rw = biomech[-1][:2]
-            wrist_vel = max(np.linalg.norm(lw-p_lw), np.linalg.norm(rw-p_rw))
-        shoulder_vec = rs - ls
-        wrist_vec = rw - lw
-        bat_angle = np.dot(shoulder_vec, wrist_vec) 
-        stance = np.linalg.norm(lf - rf)
-        biomech.append([lw, rw, wrist_vel, 180.0, bat_angle, stance])
-    cap.release()
-    if not skeleton: return None, 0, None
-    X = np.array(skeleton, dtype=np.float32)
-    B = np.array([[b[2], b[3], b[4], b[5]] for b in biomech], dtype=np.float32)
-    return np.concatenate([X, B], axis=1), len(skeleton), raw_lms
-
-def resample_sequence(X, target_len=SEQUENCE_LENGTH):
-    if X is None: return None
-    T, D = X.shape
-    if T == target_len: return X
-    out = np.zeros((target_len, D), dtype=np.float32)
-    src, dst = np.arange(T), np.linspace(0, T-1, target_len)
-    for d in range(D): out[:, d] = np.interp(dst, src, X[:, d])
-    return out
-
-def resample_raw(raw, target=50):
-    if not raw: return []
-    indices = np.linspace(0, len(raw)-1, target).astype(int)
-    return [raw[i] for i in indices]
-
-# ==========================================
-# 4. CLASSIFIER CLASS
-# ==========================================
-class CricketShotClassifier:
+class StackingEnsembleClassifier:
     def __init__(self):
-        self.base_dir = Path(__file__).parent
-        self.model_dir = self.base_dir / "models"
-        self.model_path = self.model_dir / "shot_model_V8p_best.keras"
-        self.scaler_path = self.model_dir / "shot_scaler_V8p.pkl"
-        self.encoder_path = self.model_dir / "shot_encoder_V8p.pkl"
-        self.biomech = BiomechanicsAnalyzer()
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.pose_drawer = mp.solutions.pose.Pose(static_image_mode=False, model_complexity=1)
-        self._load()
-
-    def _load(self):
-        if not self.model_path.exists():
-            logger.error(f"Missing: {self.model_path}"); sys.exit(1)
+        self.base = Path(__file__).parent
+        self.models = self.base / "models"
+        
         try:
-            self.model = tf.keras.models.load_model(str(self.model_path))
-            self.scaler = joblib.load(self.scaler_path)
-            self.encoder = joblib.load(self.encoder_path)
-            self.classes = self.encoder.classes_
-            logger.info("✅ V8p Model Loaded Successfully")
+            self.scaler = joblib.load(self.models / "scaler_V9_5.pkl")
+            self.classes = joblib.load(self.models / "classes_V9_5.pkl")
+            if hasattr(self.classes, 'classes_'):
+                self.classes = self.classes.classes_
+            
+            self.lstm_model = tf.keras.models.load_model(str(self.models / "battingedge_V9_5_best.keras"))
+            
+            try:
+                self.xgb_model = XGBClassifier()
+                self.xgb_model.load_model(self.models / "battingedge_V9_5_xgboost_best.json")
+                self.rf_model = joblib.load(self.models / "battingedge_V9_5_random_forest_best.pkl")
+                self.meta_model = joblib.load(self.models / "battingedge_V9_5_meta_model.pkl")
+                self.is_ensemble = True
+                logger.info("✅ Ensemble Loaded")
+            except:
+                self.is_ensemble = False
+                logger.warning("⚠️ Ensemble missing. Using BiLSTM.")
+                
+            self.analyzer = BiomechanicsAnalyzer()
+            
+            # Load YOLO only if available (for overlay visualization only)
+            if YOLO_AVAILABLE:
+                try:
+                    self.yolo = YOLO('yolov8n.pt')
+                    logger.info("✅ YOLO loaded for overlay tracking")
+                except:
+                    self.yolo = None
+                    logger.warning("⚠️ YOLO load failed")
+            else:
+                self.yolo = None
+            
         except Exception as e:
-            logger.error(f"Load Error: {e}"); sys.exit(1)
+            logger.error(f"Init Error: {e}")
+            sys.exit(1)
+
+    def extract_features(self, video_path):
+        """
+        YOUR INTERPOLATION LOGIC - UNCHANGED
+        CRITICAL: Uses FULL FRAME (no YOLO cropping) to match training
+        """
+        cap = cv2.VideoCapture(str(video_path))
+        frames, lms = [], []
+        
+        with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                res = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                if res.pose_landmarks:
+                    lm = res.pose_landmarks.landmark
+                    lms.append(lm)
+                    
+                    row = [c for p in lm for c in (p.x, p.y, p.z)]
+                    try:
+                        # YOUR ANGLE CALCULATIONS - UNCHANGED
+                        l_elb = calculate_dot_product_angle(lm[11], lm[13], lm[15])
+                        r_elb = calculate_dot_product_angle(lm[12], lm[14], lm[16])
+                        l_knee = calculate_dot_product_angle(lm[23], lm[25], lm[27])
+                        r_knee = calculate_dot_product_angle(lm[24], lm[26], lm[28])
+                        
+                        shoulder = np.degrees(np.arctan2(lm[12].y - lm[11].y, lm[12].x - lm[11].x))
+                        hip = np.degrees(np.arctan2(lm[24].y - lm[23].y, lm[24].x - lm[23].x))
+                        bat = np.degrees(np.arctan2(lm[15].y - lm[11].y, lm[15].x - lm[11].x))
+                        stance = abs(lm[27].x - lm[28].x)
+                        
+                        row.extend([l_elb, r_elb, l_knee, r_knee, shoulder, hip, bat, stance])
+                        frames.append(np.array(row))
+                    except:
+                        frames.append(np.array(row + [0]*8))
+        
+        cap.release()
+        if len(frames) < 10:
+            return None, None
+        
+        # YOUR TEMPORAL INTERPOLATION LOGIC - UNCHANGED
+        frames = np.array(frames)
+        current_len = len(frames)
+        target_len = SEQUENCE_LENGTH
+        
+        if current_len == target_len:
+            resampled = frames
+        else:
+            resampled = np.zeros((target_len, frames.shape[1]))
+            x_old = np.linspace(0, current_len - 1, current_len)
+            x_new = np.linspace(0, current_len - 1, target_len)
+            
+            for i in range(frames.shape[1]):
+                resampled[:, i] = np.interp(x_new, x_old, frames[:, i])
+                
+        step = max(1, len(lms) // target_len)
+        sampled_lms = lms[::step][:target_len]
+        
+        return resampled, sampled_lms
 
     def predict_video(self, video_path):
-        video_path = Path(video_path)
-        if not video_path.exists(): return {"error": "File not found"}
-
-        feat, frames, raw_lms = extract_features_full_frame(video_path)
-        if feat is None: return {"error": "No pose detected"}
-
-        feat_50 = resample_sequence(feat)
-        feat_flat = feat_50.reshape(-1, FEATURES_DIM)
-        feat_scaled = self.scaler.transform(feat_flat)
-        feat_final = feat_scaled.reshape(1, SEQUENCE_LENGTH, FEATURES_DIM)
-
-        preds = self.model.predict(feat_final, verbose=0)[0]
-        top_idx = np.argmax(preds)
-        pred_class = self.classes[top_idx]
-        conf = preds[top_idx] * 100
-        all_probs = {self.classes[i]: float(preds[i])*100 for i in range(len(self.classes))}
-        raw_50 = resample_raw(raw_lms)
-        form = self.biomech.analyze(raw_50, pred_class)
-
-        return {
-            "prediction": pred_class,
-            "confidence": conf,
-            "all_probabilities": all_probs,
-            "frames": frames,
-            "form_analysis": form
-        }
-
-    def create_overlay(self, input_path, output_path, result_data):
-        cap = cv2.VideoCapture(str(input_path))
-        width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps, total = cap.get(cv2.CAP_PROP_FPS), int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        """YOUR PREDICTION LOGIC - UNCHANGED"""
+        if not Path(video_path).exists():
+            return {"error": "File not found"}
+        
+        features, lms = self.extract_features(video_path)
+        if features is None:
+            return {"error": "No pose detected"}
         
         try:
-            fourcc = cv2.VideoWriter_fourcc(*'avc1')
-            out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
-            if not out.isOpened(): raise Exception
-        except:
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
-        
-        GREEN, RED, YELLOW, BLACK, WHITE = (0, 255, 0), (0, 0, 255), (0, 255, 255), (0, 0, 0), (255, 255, 255)
-        
-        locked_box = None
-        for _ in range(10):
-            ret, frame = cap.read()
-            if not ret: break
-            locked_box = get_initial_batsman_box(frame)
-            if locked_box: break
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        
-        frame_num = 0
-        impact_window = range(int(total/2)-2, int(total/2)+3)
-
-        while True:
-            ret, frame = cap.read()
-            if not ret: break
-            frame_num += 1
-
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            res = self.pose_drawer.process(rgb)
-            if res.pose_landmarks:
-                self.mp_drawing.draw_landmarks(frame, res.pose_landmarks, mp_pose.POSE_CONNECTIONS,
-                    self.mp_drawing.DrawingSpec(color=RED, thickness=3, circle_radius=3),
-                    self.mp_drawing.DrawingSpec(color=GREEN, thickness=2))
+            X = self.scaler.transform(features)
             
-            if frame_num in impact_window:
-                cv2.rectangle(frame, (0,0), (width, height), YELLOW, 10)
-                cv2.putText(frame, "IMPACT", (width//2 - 100, height//2), cv2.FONT_HERSHEY_SIMPLEX, 2, YELLOW, 5)
+            p_lstm = self.lstm_model.predict(X.reshape(1, 50, 107), verbose=0)[0]
+            
+            if self.is_ensemble:
+                p_xgb = self.xgb_model.predict_proba(X.reshape(1, 5350))[0]
+                p_rf = self.rf_model.predict_proba(X.reshape(1, 5350))[0]
+                final = self.meta_model.predict_proba(np.hstack([p_lstm, p_xgb, p_rf]).reshape(1, -1))[0]
+            else:
+                final = p_lstm
+                
+            idx = np.argmax(final)
+            shot = self.classes[idx]
+            conf = float(final[idx] * 100)
+            
+            form = self.analyzer.analyze(lms, shot)
+            
+            return {
+                "prediction": shot,
+                "confidence": conf,
+                "all_probabilities": {self.classes[i]: float(final[i]*100) for i in range(len(final))},
+                "form_analysis": form,
+                "filename": Path(video_path).name
+            }
+        except Exception as e:
+            logger.error(f"Predict Error: {e}")
+            return {"error": str(e)}
 
-            overlay = frame.copy()
-            cv2.rectangle(overlay, (20, 20), (350, 100), BLACK, -1)
-            cv2.putText(overlay, result_data['prediction'].upper(), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, GREEN, 2)
-            cv2.putText(overlay, f"Score: {result_data['form_analysis']['overall_score']}", (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, WHITE, 1)
-
-            cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
-            out.write(frame)
-
+    def create_overlay(self, input_path, output_path, data):
+        """
+        ===== UPDATED: GREEN BOX + FILTERED SKELETON =====
+        Uses YOLO ONLY for visualization (green box around batsman)
+        MediaPipe runs on FULL FRAME (no cropping - matches training)
+        """
+        cap = cv2.VideoCapture(str(input_path))
+        w = int(cap.get(3))
+        h = int(cap.get(4))
+        fps = cap.get(5)
+        
+        try:
+            if str(output_path).endswith('.webm'):
+                fourcc = cv2.VideoWriter_fourcc(*'vp80')
+            else:
+                fourcc = cv2.VideoWriter_fourcc(*'avc1')
+            out = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
+        except: 
+            out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+        
+        shot = data['prediction'].upper()
+        form = data.get('form_analysis', {})
+        score = form.get('overall_score', 0)
+        perf_level = form.get('performance_level', 'N/A')
+        checks = form.get('checks', [])
+        
+        # Custom MediaPipe drawing specs (GREEN theme)
+        landmark_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=3)
+        connection_spec = mp_drawing.DrawingSpec(color=(0, 220, 0), thickness=2)
+        
+        with mp_pose.Pose(min_detection_confidence=0.5) as pose:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # ===== STEP 1: YOLO DETECTION (VISUAL BOX ONLY) =====
+                best_person_box = None
+                if self.yolo is not None:
+                    try:
+                        results = self.yolo(frame, verbose=False)
+                        boxes = results[0].boxes.data.cpu().numpy()
+                        person_boxes = [b for b in boxes if int(b[5]) == 0 and b[4] > 0.5]  # class=0 (person), conf>0.5
+                        
+                        if len(person_boxes) > 0:
+                            # Find largest person (likely the batsman, not umpire)
+                            best_box = max(person_boxes, key=lambda b: (b[2]-b[0])*(b[3]-b[1]))
+                            x1, y1, x2, y2 = map(int, best_box[:4])
+                            best_person_box = (x1, y1, x2, y2)
+                    except Exception as e:
+                        logger.warning(f"YOLO detection failed: {e}")
+                
+                # ===== STEP 2: MEDIAPIPE ON FULL FRAME (NO CROPPING!) =====
+                res = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                
+                # ===== STEP 3: FILTER SKELETON TO ONLY SHOW PERSON IN BOX =====
+                if res.pose_landmarks:
+                    if best_person_box is not None:
+                        # Check if nose (landmark 0) is inside the YOLO box
+                        x1, y1, x2, y2 = best_person_box
+                        nose = res.pose_landmarks.landmark[0]
+                        nose_x = int(nose.x * w)
+                        nose_y = int(nose.y * h)
+                        
+                        # Only draw skeleton if nose is inside the box
+                        if x1 <= nose_x <= x2 and y1 <= nose_y <= y2:
+                            mp_drawing.draw_landmarks(
+                                frame, 
+                                res.pose_landmarks, 
+                                mp_pose.POSE_CONNECTIONS,
+                                landmark_spec,
+                                connection_spec
+                            )
+                            
+                            # Draw green box around batsman
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                            cv2.putText(frame, "BATSMAN", (x1, y1-10), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    else:
+                        # Fallback: draw skeleton anyway if YOLO failed
+                        mp_drawing.draw_landmarks(
+                            frame, 
+                            res.pose_landmarks, 
+                            mp_pose.POSE_CONNECTIONS,
+                            landmark_spec,
+                            connection_spec
+                        )
+                
+                # ===== TOP HUD (UNCHANGED) =====
+                overlay = frame.copy()
+                cv2.rectangle(overlay, (0, 0), (w, 140), (10, 14, 26), -1)
+                cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
+                cv2.rectangle(frame, (0, 0), (w, 140), (255, 229, 0), 3)
+                
+                cv2.putText(frame, shot, (20, 50), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.4, (255, 255, 255), 3)
+                
+                if score >= 85:
+                    score_color = (16, 185, 129)  # Green
+                elif score >= 70:
+                    score_color = (255, 229, 0)    # Neon Blue
+                elif score >= 55:
+                    score_color = (11, 158, 245)   # Orange
+                else:
+                    score_color = (68, 68, 239)    # Red
+                
+                cv2.putText(frame, f"SCORE: {score}%", (20, 95), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.0, score_color, 3)
+                cv2.putText(frame, f"Level: {perf_level}", (20, 125), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (148, 163, 184), 2)
+                
+                # ===== SIDE PANEL (UNCHANGED) =====
+                panel_x = w - 350
+                panel_y = 20
+                panel_w = 330
+                panel_h = min(len(checks) * 35 + 70, h - 40)
+                
+                overlay2 = frame.copy()
+                cv2.rectangle(overlay2, (panel_x, panel_y), (panel_x + panel_w, panel_y + panel_h), 
+                             (10, 14, 26), -1)
+                cv2.addWeighted(overlay2, 0.85, frame, 0.15, 0, frame)
+                cv2.rectangle(frame, (panel_x, panel_y), (panel_x + panel_w, panel_y + panel_h), 
+                             (255, 229, 0), 2)
+                
+                cv2.putText(frame, "BIOMECHANICS", (panel_x + 10, panel_y + 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 229, 0), 2)
+                
+                y_offset = panel_y + 60
+                line_height = 35
+                
+                for i, check in enumerate(checks[:8]):
+                    if y_offset + line_height > panel_y + panel_h - 10:
+                        break
+                    
+                    name = check.get('name', 'Metric')
+                    value = check.get('value', 'N/A')
+                    status = check.get('status', 'Unknown')
+                    
+                    if status == 'Excellent':
+                        status_color = (16, 185, 129)  # Green
+                    elif status == 'Good':
+                        status_color = (255, 229, 0)    # Blue
+                    elif status == 'Acceptable':
+                        status_color = (11, 158, 245)   # Orange
+                    else:
+                        status_color = (68, 68, 239)    # Red
+                    
+                    cv2.putText(frame, name[:18], (panel_x + 10, y_offset), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                    
+                    value_text = f"{value}"
+                    (text_w, text_h), _ = cv2.getTextSize(value_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                    cv2.putText(frame, value_text, (panel_x + panel_w - text_w - 15, y_offset + 18), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, status_color, 2)
+                    
+                    y_offset += line_height
+                
+                out.write(frame)
+        
         cap.release()
         out.release()
         return True
-
-if __name__ == "__main__":
-    pass

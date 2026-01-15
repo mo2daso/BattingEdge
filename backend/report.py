@@ -1,184 +1,463 @@
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from datetime import datetime
+from pathlib import Path
 import logging
 
 logger = logging.getLogger("PDF_Report")
 
-# Static Reference Data for the "Textbook Criteria" Section
-TEXTBOOK_CRITERIA = [
-    ("Front Elbow", "120° - 140°", "Ensures maximum leverage and bat speed."),
-    ("Head Stability", "< 10cm drift", "Maintains balance and eye-line on the ball."),
-    ("Back Foot", "< 5cm lift", "Anchors the base for power transfer."),
-    ("Hip Rotation", "> 30° (Drive) / > 60° (Pull)", "Generates explosive power from the core."),
-    ("Follow Through", "Hands > Shoulders", "Guarantees acceleration through impact.")
-]
+# ==========================================
+# 1. COLOR DEFINITIONS (SAFE MODE)
+# ==========================================
+# STRINGS (For XML tags like <font color="...">)
+NEON_BLUE_HEX = '#00E5FF'
+JET_BLACK_HEX = '#0A0E1A'
+DARK_SLATE_HEX = '#1E293B'
+SILVER_GRAY_HEX = '#94A3B8'
+SUCCESS_GREEN_HEX = '#10B981'
+WARNING_ORANGE_HEX = '#F59E0B'
+ERROR_RED_HEX = '#EF4444'
+LIGHT_BG_HEX = '#F8FAFC'
+WHITE_HEX = '#FFFFFF'
 
-def draw_wrapped_text(canvas_obj, text, x, y, max_width, line_height=14):
-    if not text: return y
-    words = text.split()
-    line = ""
-    for word in words:
-        test_line = line + word + " "
-        if canvas_obj.stringWidth(test_line) < max_width:
-            line = test_line
-        else:
-            canvas_obj.drawString(x, y, line)
-            y -= line_height
-            line = word + " "
-    if line:
-        canvas_obj.drawString(x, y, line)
-        y -= line_height
-    return y
+# OBJECTS (For Table Styles)
+C_NEON_BLUE = colors.HexColor(NEON_BLUE_HEX)
+C_JET_BLACK = colors.HexColor(JET_BLACK_HEX)
+C_DARK_SLATE = colors.HexColor(DARK_SLATE_HEX)
+C_SILVER_GRAY = colors.HexColor(SILVER_GRAY_HEX)
+C_LIGHT_BG = colors.HexColor(LIGHT_BG_HEX)
+C_WHITE = colors.HexColor(WHITE_HEX)
+
+# ==========================================
+# 2. SHOT STANDARDS DATA
+# ==========================================
+SHOT_CRITERIA = {
+    'cover drive': {
+        'key_points': [
+            'Elbow Extension: 120-180 degrees at contact',
+            'Head Stability: <90cm drift from stance',
+            'Bat Angle: 0-20 degrees from vertical',
+            'Hip Rotation: 40-140 degrees through shot'
+        ]
+    },
+    'pull shot': {
+        'key_points': [
+            'Hip Rotation: 50-130 degrees (critical for power)',
+            'Elbow Extension: 115-180 degrees for leverage',
+            'Head Position: Inside line, <75cm drift',
+            'Bat Path: Horizontal (60-120 degrees)'
+        ]
+    },
+    'cut shot': {
+        'key_points': [
+            'Elbow Extension: 90-175 degrees (width)',
+            'Bat Angle: 70-100 degrees to guide square',
+            'Head Stability: <80cm drift',
+            'High Hands: Critical for control'
+        ]
+    },
+    'sweep shot': {
+        'key_points': [
+            'Low Position: Front knee bent (130-175 degrees)',
+            'Bat Angle: Horizontal (75-105 degrees)',
+            'Head Over Ball: Critical for control',
+            'Weight Forward: 80% on front leg'
+        ]
+    },
+    'defense': {
+        'key_points': [
+            'Vertical Bat: 0-15 degrees from perpendicular',
+            'Soft Hands: Slight elbow flex (120-170 degrees)',
+            'Head Over Ball: Forward press essential',
+            'Front Knee: Stride forward (140-180 degrees)'
+        ]
+    }
+}
 
 def generate_pdf(result, output_path):
+    """
+    Generate professional PDF with enhanced visual design (Robust Version)
+    """
     try:
-        c = canvas.Canvas(str(output_path), pagesize=letter)
-        width, height = letter
+        doc = SimpleDocTemplate(
+            str(output_path), 
+            pagesize=letter,
+            rightMargin=0.6*inch, 
+            leftMargin=0.6*inch,
+            topMargin=0.5*inch, 
+            bottomMargin=0.6*inch
+        )
+        elements = []
+        styles = getSampleStyleSheet()
         
-        # --- COLORS ---
-        DARK_BLUE = colors.Color(0.04, 0.05, 0.1) 
-        LIGHT_GRAY = colors.Color(0.95, 0.95, 0.95)
-        
-        # --- HEADER ---
-        c.setFillColor(DARK_BLUE)
-        c.rect(0, height - 1.2*inch, width, 1.2*inch, fill=1, stroke=0)
-        
-        c.setFillColor(colors.white)
-        c.setFont("Helvetica-Bold", 24)
-        c.drawString(0.5*inch, height - 0.7*inch, "BattingEdge Performance Report")
-        
-        c.setFont("Helvetica", 10)
-        date_str = datetime.now().strftime('%B %d, %Y')
-        c.drawRightString(width - 0.5*inch, height - 0.7*inch, f"Generated: {date_str}")
-        
-        y_pos = height - 1.8*inch
+        # Helper to safely add or update styles
+        def upsert_style(name, parent, **kwargs):
+            if name in styles:
+                style = styles[name]
+                for k, v in kwargs.items():
+                    setattr(style, k, v)
+            else:
+                styles.add(ParagraphStyle(name=name, parent=parent, **kwargs))
 
-        # --- SCORE & GRADE ---
+        # ==========================================
+        # CUSTOM STYLES (Safe Upsert)
+        # ==========================================
+        upsert_style('MainTitle', styles['Heading1'],
+            fontSize=28,
+            textColor=C_NEON_BLUE,
+            spaceAfter=6,
+            spaceBefore=0,
+            fontName='Helvetica-Bold',
+            alignment=TA_LEFT  # Changed to LEFT to match logo
+        )
+        
+        upsert_style('Subtitle', styles['Normal'],
+            fontSize=12,
+            textColor=C_SILVER_GRAY,
+            spaceAfter=15,
+            fontName='Helvetica',
+            alignment=TA_LEFT # Changed to LEFT
+        )
+        
+        upsert_style('SectionHeader', styles['Heading2'],
+            fontSize=14,
+            textColor=C_JET_BLACK,
+            spaceBefore=12,
+            spaceAfter=8,
+            fontName='Helvetica-Bold',
+            borderWidth=1,
+            borderColor=C_NEON_BLUE,
+            borderPadding=6,
+            backColor=C_LIGHT_BG,
+            leftIndent=0
+        )
+        
+        upsert_style('BodyText', styles['Normal'],
+            fontSize=10,
+            leading=14,
+            spaceAfter=8,
+            textColor=C_DARK_SLATE,
+            fontName='Helvetica',
+            alignment=TA_JUSTIFY
+        )
+        
+        upsert_style('CellText', styles['Normal'],
+            fontSize=9,
+            leading=11,
+            textColor=C_DARK_SLATE,
+            fontName='Helvetica',
+            wordWrap='CJK'
+        )
+        
+        upsert_style('CriteriaPoint', styles['Normal'],
+            fontSize=9,
+            leading=13,
+            textColor=C_DARK_SLATE,
+            fontName='Helvetica',
+            leftIndent=12,
+            bulletIndent=6
+        )
+        
+        upsert_style('ScoreText', styles['Normal'],
+            fontSize=36,
+            leading=36, # Tight leading to move closer to text below
+            fontName='Helvetica-Bold',
+            alignment=TA_CENTER,
+            spaceAfter=0
+        )
+        
+        # ==========================================
+        # EXTRACT DATA
+        # ==========================================
         form = result.get('form_analysis', {})
-        score = form.get('overall_score', 0)
+        score = form.get('overall_score', 65)
+        performance = form.get('performance_level', 'Intermediate')
+        shot_type = result.get('prediction', 'Unknown')
+        confidence = result.get('confidence', 0)
         
-        if score >= 80: 
-            grade = "A"; grade_color = colors.green; grade_txt = "PRO LEVEL"
-        elif score >= 60: 
-            grade = "B"; grade_color = colors.orange; grade_txt = "INTERMEDIATE"
-        else: 
-            grade = "C"; grade_color = colors.red; grade_txt = "NEEDS WORK"
+        logger.info(f"Generating PDF: {shot_type} - Score {score}%")
+        
+        # ==========================================
+        # 1. HEADER (LOGO LEFT, BIGGER META)
+        # ==========================================
+        logo_path = Path(__file__).parent.parent / "frontend" / "public" / "logo.png"
+        
+        header_data = []
+        
+        # Left Column: Logo
+        if logo_path.exists():
+            try:
+                # Use KeepAspectRatio logic if needed, but simple Image is safer
+                im = Image(str(logo_path), width=1.0*inch, height=1.0*inch)
+                im.hAlign = 'LEFT'
+                header_data.append(im)
+            except Exception as e:
+                logger.warning(f"Logo load warning: {e}")
+                header_data.append(Spacer(1, 1)) # Placeholder
+        else:
+            header_data.append(Spacer(1, 1))
 
-        # Score Card Box
-        c.setStrokeColor(colors.lightgrey)
-        c.roundRect(0.5*inch, y_pos - 1*inch, width - 1*inch, 1*inch, 8, fill=0, stroke=1)
+        # Right Column: Title and Meta
+        meta_html = (
+            f"<font size='14'><b>{shot_type.upper()}</b></font>  "
+            f"<font size='12' color='#94A3B8'>(Confidence: {confidence:.1f}%)</font><br/>"
+            f"<font size='10' color='#64748B'>{datetime.now().strftime('%B %d, %Y')}</font>"
+        )
         
-        # Shot Info (Left)
-        c.setFillColor(colors.black)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(0.7*inch, y_pos - 0.3*inch, "SHOT CLASSIFICATION")
-        c.setFont("Helvetica-Bold", 20)
-        c.setFillColor(DARK_BLUE)
-        c.drawString(0.7*inch, y_pos - 0.6*inch, result.get('prediction', 'Unknown').upper())
+        title_para = Paragraph("BATTINGEDGE ANALYSIS", styles['MainTitle'])
+        meta_para = Paragraph(meta_html, styles['Subtitle'])
         
-        # Grade (Right)
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(colors.black)
-        c.drawRightString(width - 0.7*inch, y_pos - 0.3*inch, "TECHNIQUE SCORE")
-        c.setFont("Helvetica-Bold", 30)
-        c.setFillColor(grade_color)
-        c.drawRightString(width - 0.7*inch, y_pos - 0.7*inch, f"{score} / 100")
+        # Use a table to align Logo Left and Text Left next to it
+        header_table = Table([[header_data[0], [title_para, meta_para]]], colWidths=[1.2*inch, 5.8*inch])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+        ]))
+        elements.append(header_table)
         
-        y_pos -= 1.4*inch
-
-        # --- COACHING SUMMARY ---
-        c.setFont("Helvetica-Bold", 14)
-        c.setFillColor(colors.black)
-        c.drawString(0.5*inch, y_pos, "COACH'S SUMMARY")
-        y_pos -= 0.3*inch
+        # Divider line
+        line_table = Table([['']], colWidths=[7*inch])
+        line_table.setStyle(TableStyle([
+            ('LINEABOVE', (0,0), (-1,0), 2, C_NEON_BLUE),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+        elements.append(line_table)
+        elements.append(Spacer(1, 0.15*inch))
         
-        c.setFont("Helvetica", 11)
-        summary = form.get('summary', "No summary.")
-        y_pos = draw_wrapped_text(c, summary, 0.5*inch, y_pos, width - 1*inch)
-        y_pos -= 0.4*inch
-
-        # --- ANALYSIS BREAKDOWN ---
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(0.5*inch, y_pos, "DETAILED BIOMECHANICS")
-        y_pos -= 0.2*inch
+        # ==========================================
+        # 2. PERFORMANCE SCORE BOX (COMPACT)
+        # ==========================================
+        # Determine colors (Safe Hex Strings)
+        if score >= 85:
+            score_hex = SUCCESS_GREEN_HEX
+            box_bg_obj = colors.HexColor('#ECFDF5')
+            box_border_obj = colors.HexColor(SUCCESS_GREEN_HEX)
+        elif score >= 70:
+            score_hex = NEON_BLUE_HEX
+            box_bg_obj = colors.HexColor('#EFF6FF')
+            box_border_obj = colors.HexColor(NEON_BLUE_HEX)
+        elif score >= 55:
+            score_hex = WARNING_ORANGE_HEX
+            box_bg_obj = colors.HexColor('#FFFBEB')
+            box_border_obj = colors.HexColor(WARNING_ORANGE_HEX)
+        else:
+            score_hex = ERROR_RED_HEX
+            box_bg_obj = colors.HexColor('#FEF2F2')
+            box_border_obj = colors.HexColor(ERROR_RED_HEX)
         
+        # Content
+        score_para = Paragraph(f"<font color='{score_hex}'>{score}</font>", styles['ScoreText'])
+        perf_para = Paragraph(f"<b>{performance}</b>", styles['Subtitle'])
+        perf_para.style.alignment = TA_CENTER # Ensure center
+        
+        score_data = [[score_para], [perf_para]]
+        score_table = Table(score_data, colWidths=[7*inch])
+        
+        # TIGHTER PADDING
+        score_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), box_bg_obj),
+            ('BOX', (0,0), (-1,-1), 2, box_border_obj),
+            ('TOPPADDING', (0,0), (-1,-1), 6),    # Reduced from 18
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8), # Reduced from 18
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elements.append(score_table)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==========================================
+        # 3. SHOT STANDARDS (KEPT TOGETHER)
+        # ==========================================
+        shot_key = shot_type.lower()
+        criteria = SHOT_CRITERIA.get(shot_key, {})
+        
+        if criteria:
+            group_elements = []
+            group_elements.append(Paragraph(f"{shot_type.title()} Standards", styles['SectionHeader']))
+            for point in criteria.get('key_points', []):
+                clean_point = str(point).replace('&', 'and').replace('<', '&lt;')
+                bullet = f"<bullet>&bull;</bullet> {clean_point}"
+                group_elements.append(Paragraph(bullet, styles['CriteriaPoint']))
+            
+            elements.append(KeepTogether(group_elements))
+            elements.append(Spacer(1, 0.2*inch))
+        
+        # ==========================================
+        # 4. COACH'S SUMMARY
+        # ==========================================
+        elements.append(Paragraph("Coach's Assessment", styles['SectionHeader']))
+        
+        summary = form.get('summary', 'Analysis completed.')
+        summary_safe = str(summary).replace('&', '&amp;').replace('<', '&lt;')
+        elements.append(Paragraph(summary_safe, styles['BodyText']))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # ==========================================
+        # 5. STRENGTHS & FOCUS AREAS (SIDE BY SIDE)
+        # ==========================================
+        strengths = form.get('strengths', [])
+        improvements = form.get('key_improvements', [])
+        
+        if strengths or improvements:
+            group_elements = []
+            col_data = []
+            
+            # Header
+            col_data.append([
+                Paragraph("<b>Strengths</b>", styles['BodyText']),
+                Paragraph("<b>Focus Areas</b>", styles['BodyText'])
+            ])
+            
+            max_rows = max(len(strengths[:3]), len(improvements[:3]))
+            for i in range(max_rows):
+                left_text, right_text = "", ""
+                
+                if i < len(strengths[:3]):
+                    safe_text = str(strengths[i]).replace('&', '&amp;').replace('<', '&lt;')
+                    left_text = f"<bullet>✓</bullet> {safe_text}"
+                
+                if i < len(improvements[:3]):
+                    safe_text = str(improvements[i]).replace('&', '&amp;').replace('<', '&lt;')
+                    right_text = f"<bullet>•</bullet> {safe_text}"
+                
+                col_data.append([
+                    Paragraph(left_text, styles['BodyText']),
+                    Paragraph(right_text, styles['BodyText'])
+                ])
+            
+            col_table = Table(col_data, colWidths=[3.4*inch, 3.4*inch])
+            col_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), C_LIGHT_BG),
+                ('TEXTCOLOR', (0,0), (-1,0), C_JET_BLACK),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0,0), (-1,0), 8),
+                ('TOPPADDING', (0,0), (-1,0), 8),
+                ('LINEBELOW', (0,0), (-1,0), 1.5, C_NEON_BLUE),
+                ('VALIGN', (0,1), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 10),
+                ('RIGHTPADDING', (0,0), (-1,-1), 10),
+                ('TOPPADDING', (0,1), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,1), (-1,-1), 6),
+                ('GRID', (0,0), (-1,-1), 0.5, C_SILVER_GRAY),
+            ]))
+            
+            # Keep table together
+            elements.append(KeepTogether(col_table))
+            elements.append(Spacer(1, 0.25*inch))
+        
+        # ==========================================
+        # 6. BIOMECHANICAL DATA (KEPT TOGETHER)
+        # ==========================================
         checks = form.get('checks', [])
-        for i, check in enumerate(checks):
-            # Page Break Check
-            if y_pos < 3.5*inch: # Leave space for footer table
-                c.showPage()
-                y_pos = height - 1*inch
+        if checks:
+            group_elements = []
+            group_elements.append(Paragraph("Biomechanical Data", styles['SectionHeader']))
             
-            # Row Background
-            if i % 2 == 0:
-                c.setFillColor(LIGHT_GRAY)
-                c.rect(0.5*inch, y_pos - 0.5*inch, width - 1*inch, 0.6*inch, fill=1, stroke=0)
+            table_data = [[
+                Paragraph('<b>Metric</b>', styles['CellText']),
+                Paragraph('<b>Value</b>', styles['CellText']),
+                Paragraph('<b>Target</b>', styles['CellText']),
+                Paragraph('<b>Rating</b>', styles['CellText']),
+                Paragraph('<b>Advice</b>', styles['CellText'])
+            ]]
             
-            is_error = check.get('is_error', False)
-            icon = "X" if is_error else "OK"
-            color = colors.red if is_error else colors.green
+            for check in checks:
+                try:
+                    name = Paragraph(str(check.get('name', '-')), styles['CellText'])
+                    value = Paragraph(str(check.get('value', '-')), styles['CellText'])
+                    target = Paragraph(str(check.get('ideal_range', '-')), styles['CellText'])
+                    
+                    status_text = check.get('status', 'Unknown')
+                    if status_text == 'Excellent': s_hex = SUCCESS_GREEN_HEX
+                    elif status_text == 'Good': s_hex = NEON_BLUE_HEX
+                    elif status_text == 'Acceptable': s_hex = WARNING_ORANGE_HEX
+                    else: s_hex = ERROR_RED_HEX
+                    
+                    status = Paragraph(f"<font color='{s_hex}'><b>{status_text}</b></font>", styles['CellText'])
+                    advice_safe = str(check.get('advice', '')).replace('&', '&amp;').replace('<', '&lt;')
+                    advice = Paragraph(advice_safe, styles['CellText'])
+                    
+                    table_data.append([name, value, target, status, advice])
+                except:
+                    continue
             
-            # Icon & Name
-            c.setFont("Helvetica-Bold", 12)
-            c.setFillColor(color)
-            c.drawString(0.6*inch, y_pos, f"[{icon}] {check.get('name', '')}")
+            t = Table(table_data, colWidths=[1.3*inch, 0.8*inch, 1.1*inch, 0.9*inch, 2.9*inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), C_JET_BLACK),
+                ('TEXTCOLOR', (0,0), (-1,0), C_WHITE),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0,0), (-1,0), 8),
+                ('TOPPADDING', (0,0), (-1,0), 8),
+                ('ALIGN', (0,0), (-1,0), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('LEFTPADDING', (0,0), (-1,-1), 6),
+                ('RIGHTPADDING', (0,0), (-1,-1), 6),
+                ('GRID', (0,1), (-1,-1), 0.5, C_SILVER_GRAY),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [C_WHITE, C_LIGHT_BG]),
+            ]))
             
-            # Measured Value (Technical Data)
-            c.setFillColor(colors.black)
-            c.setFont("Helvetica-Bold", 10)
-            c.drawRightString(width - 0.6*inch, y_pos, f"Value: {check.get('value', '')}")
-            
-            # Advice (Human Readable)
-            y_pos -= 0.2*inch
-            c.setFont("Helvetica-Oblique", 10)
-            c.setFillColor(colors.darkgrey)
-            advice = check.get('advice', 'Good form.')
-            c.drawString(0.8*inch, y_pos, f"Feedback: {advice}")
-            
-            y_pos -= 0.4*inch
-
-        # --- TEXTBOOK CRITERIA REFERENCE (The "Cheat Sheet") ---
-        # Draw this at the bottom of the page
-        y_bottom = 2.5*inch 
-        if y_pos < y_bottom: 
-            c.showPage()
-            y_bottom = height - 3*inch
-
-        c.setStrokeColor(DARK_BLUE)
-        c.setLineWidth(1.5)
-        c.line(0.5*inch, y_bottom + 0.2*inch, width - 0.5*inch, y_bottom + 0.2*inch)
+            group_elements.append(t)
+            elements.append(KeepTogether(group_elements))
+            elements.append(Spacer(1, 0.25*inch))
         
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(DARK_BLUE)
-        c.drawString(0.5*inch, y_bottom, "REFERENCE: TEXTBOOK CRICKET CRITERIA")
+        # ==========================================
+        # 7. DRILLS
+        # ==========================================
+        drills = form.get('recommended_drills', [])
+        if drills:
+            group_elements = []
+            group_elements.append(Paragraph("Recommended Drills", styles['SectionHeader']))
+            for i, drill in enumerate(drills[:3], 1):
+                try:
+                    if isinstance(drill, dict):
+                        d_name = drill.get('name', f'Drill {i}')
+                        d_desc = drill.get('description', '')
+                    else:
+                        d_name = f'Drill {i}'
+                        d_desc = str(drill)
+                    
+                    safe_name = str(d_name).replace('&', '&amp;').replace('<', '&lt;')
+                    safe_desc = str(d_desc).replace('&', '&amp;').replace('<', '&lt;')
+                    
+                    drill_html = f"<b>{i}. {safe_name}:</b> {safe_desc}"
+                    group_elements.append(Paragraph(drill_html, styles['BodyText']))
+                    group_elements.append(Spacer(1, 0.1*inch))
+                except:
+                    continue
+            elements.append(KeepTogether(group_elements))
+            elements.append(Spacer(1, 0.15*inch))
         
-        y_ref = y_bottom - 0.3*inch
-        c.setFont("Helvetica", 9)
+        # ==========================================
+        # 8. FOOTER
+        # ==========================================
+        footer_line = Table([['']], colWidths=[7*inch])
+        footer_line.setStyle(TableStyle([
+            ('LINEABOVE', (0,0), (-1,0), 1, C_SILVER_GRAY),
+        ]))
+        elements.append(footer_line)
+        elements.append(Spacer(1, 0.1*inch))
         
-        # Table Header
-        c.drawString(0.5*inch, y_ref, "METRIC")
-        c.drawString(2.5*inch, y_ref, "IDEAL RANGE")
-        c.drawString(4.5*inch, y_ref, "WHY IT MATTERS")
-        y_ref -= 0.1*inch
-        c.setLineWidth(0.5)
-        c.line(0.5*inch, y_ref, width - 0.5*inch, y_ref)
-        y_ref -= 0.2*inch
-
-        for item in TEXTBOOK_CRITERIA:
-            c.setFont("Helvetica-Bold", 9)
-            c.drawString(0.5*inch, y_ref, item[0])
-            c.setFont("Helvetica", 9)
-            c.drawString(2.5*inch, y_ref, item[1])
-            c.setFont("Helvetica-Oblique", 8)
-            c.drawString(4.5*inch, y_ref, item[2])
-            y_ref -= 0.2*inch
-
-        c.save()
-        logger.info(f"PDF Generated: {output_path.name}")
+        footer_text = (
+            "<i><font size='8' color='#64748B'>"
+            "AI-calibrated analysis based on ECB & MCC coaching standards. "
+            "Measurements reflect 2D camera perspective. "
+            "Practice under qualified supervision for best results. "
+            "© BattingEdge 2025"
+            "</font></i>"
+        )
+        elements.append(Paragraph(footer_text, styles['BodyText']))
+        
+        # Build
+        doc.build(elements)
+        logger.info(f"✅ PDF generated: {output_path.name}")
         return True
+        
     except Exception as e:
-        logger.error(f"PDF Error: {e}")
+        logger.error(f"❌ PDF generation failed: {e}", exc_info=True)
         return False

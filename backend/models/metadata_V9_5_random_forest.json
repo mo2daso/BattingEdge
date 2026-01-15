@@ -1,0 +1,24 @@
+{
+  "version": "V9.5",
+  "algorithm": "random_forest",
+  "features": "99 raw pose + 8 angles (no velocities) - RF Flattened",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 89.41798941798942,
+  "per_class_accuracy": {
+    "Cover Drive": 85.8974358974359,
+    "Cut Shot": 91.35802469135803,
+    "Defense": 89.33333333333333,
+    "Pull Shot": 87.32394366197182,
+    "Sweep Shot": 93.15068493150685
+  },
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": "None"
+  }
+}

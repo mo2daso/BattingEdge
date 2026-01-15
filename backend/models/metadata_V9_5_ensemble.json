@@ -1,0 +1,21 @@
+{
+  "version": "V9.5 Ensemble",
+  "components": [
+    "lstm",
+    "xgboost",
+    "rf"
+  ],
+  "weights": {
+    "lstm": 0.5,
+    "rf": 0.3,
+    "xgboost": 0.2
+  },
+  "test_accuracy": 92.06349206349206,
+  "per_class_accuracy": {
+    "Cover Drive": 87.17948717948718,
+    "Cut Shot": 86.41975308641975,
+    "Defense": 97.33333333333334,
+    "Pull Shot": 90.14084507042254,
+    "Sweep Shot": 100.0
+  }
+}

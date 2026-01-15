@@ -6,7 +6,9 @@ __pycache__/
 *$py.class
 .ipynb_checkpoints
 venv/
+env/
 .env
+.env.local
 .vscode/
 .idea/
 .DS_Store
@@ -31,7 +33,10 @@ backend/uploads/
 backend/outputs/
 # Local Database
 backend/shot_analysis.db
+battingedge.db
+*.sqlite
 *.sqlite3
+*.db
 # Logs
 logs/
 *.log
@@ -45,6 +50,10 @@ data/features/
 data/raw_test_clips/
 data/unprofvids/
 data/unprofessional_test/
+# CRITICAL: Ignore features folder with training arrays
+features/
+*.npy
+*.npz
 
 # ===========================
 # 5. GENERATED DEMOS
@@ -62,20 +71,40 @@ data/demo_videos/
 *.avi
 *.mov
 *.mkv
-*.npy
-*.npz
+*.webm
+*.flv
+*.wmv
 *.zip
 *.rar
+*.tar.gz
+*.7z
 
 # ===========================
 # 7. MODELS (SELECTIVE)
 # ===========================
-# Ignore heavy Neural Network weights (>100MB usually)
-backend/models/*.keras
-backend/models/*.h5
-backend/models/*.pt
+# Ignore heavy Neural Network weights
+*.keras
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.onnx
 backend/models/checkpoints/
 
-# !IMPORTANT! KEEP these tiny files required for the logic to run:
+# EXCEPTION: Keep small pickle files and configs
 !backend/models/*.pkl
 !backend/models/*.json
+!backend/models/scaler_*.npy
+
+# Specific YOLO model files (too large)
+yolov8n.pt
+notebooks/yolov8n.pt
+backend/models/yolov8n.pt
+
+# ===========================
+# 8. DOCUMENTATION (OPTIONAL)
+# ===========================
+# Uncomment if you have large PDF datasets
+ *.pdf
+# But allow small docs in docs folder:
+!docs/*.pdf

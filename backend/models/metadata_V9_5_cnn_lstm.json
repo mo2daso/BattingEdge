@@ -1,0 +1,25 @@
+{
+  "version": "V9.5",
+  "algorithm": "cnn_lstm",
+  "features": "99 raw pose + 8 angles (no velocities)",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 82.8042328042328,
+  "per_class_accuracy": {
+    "Cover Drive": 75.64102564102564,
+    "Cut Shot": 82.71604938271605,
+    "Defense": 85.33333333333334,
+    "Pull Shot": 76.05633802816901,
+    "Sweep Shot": 94.52054794520548
+  },
+  "hyperparameters": {
+    "epochs": 60,
+    "batch_size": 16,
+    "learning_rate": 0.0001
+  }
+}

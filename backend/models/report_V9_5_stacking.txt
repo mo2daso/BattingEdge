@@ -1,0 +1,11 @@
+              precision    recall  f1-score   support
+
+ Cover Drive      0.986     0.885     0.932        78
+    Cut Shot      0.895     0.951     0.922        81
+     Defense      1.000     0.973     0.986        75
+   Pull Shot      0.957     0.930     0.943        71
+  Sweep Shot      0.912     1.000     0.954        73
+
+    accuracy                          0.947       378
+   macro avg      0.950     0.948     0.948       378
+weighted avg      0.950     0.947     0.947       378

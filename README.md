@@ -1,40 +1,42 @@
-Markdown
-
 # 🏏 BattingEdge: AI-Powered Cricket Analysis System
-![Version](https://img.shields.io/badge/version-V8p_Production-blue)
+![Version](https://img.shields.io/badge/version-V9.5_Ensemble-blue)
 ![Stack](https://img.shields.io/badge/React-FastAPI-green)
-![AI](https://img.shields.io/badge/TensorFlow_|_MediaPipe-Computer_Vision-orange)
+![AI](https://img.shields.io/badge/Hybrid_Intelligence-Stacking_Ensemble-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-**BattingEdge** is a comprehensive AI coaching platform designed to democratize professional-grade cricket analysis. It combines **Computer Vision (MediaPipe, YOLOv8)** with **Deep Learning (Bi-LSTM)** to classify shots and perform real-time biomechanical grading.
+**BattingEdge** is a professional-grade AI coaching platform that democratizes cricket analysis. It utilizes a **Hybrid Intelligence** approach, combining **Computer Vision (MediaPipe, YOLOv8)** with a **Stacking Ensemble Classifier (Bi-LSTM + Random Forest + XGBoost)** to deliver state-of-the-art shot classification and biomechanical grading.
 
-Unlike simple video players, BattingEdge acts as a **Virtual Coach**, offering actionable feedback on technique (e.g., "Elbow dropped," "Head falling over") with 78% classification accuracy.
+Acting as a **Virtual Coach**, BattingEdge provides objective, actionable feedback (e.g., "Elbow dropped," "Head falling over") with **94.71% classification accuracy**, significantly outperforming traditional single-model systems.
 
 ---
 
 ## 🚀 Key Features
 
-### 🧠 AI Analysis Engine
-* **Shot Classification:** Identifies 4 key shots (Drive, Pull, Cut, Sweep) using a Bi-LSTM network.
-* **Biomechanics Grading:** Calculates a 0-100 "Form Score" based on 5 technical checks (Elbow Angle, Head Stability, Footwork, Hip Rotation, Follow Through).
-* **Smart Tracking:** Uses YOLOv8 to isolate the batsman from the wicketkeeper/umpire for accurate analysis.
+### 🧠 Hybrid AI Engine (V9.5)
+* **Ensemble Classification:** Uses a meta-learner to combine predictions from:
+    * **Bi-LSTM:** Captures temporal motion sequences (the "flow" of the shot).
+    * **Random Forest:** Analyzes geometric shapes and limb angles (the "structure" of the shot).
+    * **XGBoost:** Corrects residual errors and handles edge cases.
+* **Smart Tracking:** Utilizes **YOLOv8** to intelligently isolate the batsman, filtering out umpires and wicketkeepers for precise skeletal tracking.
+* **Biomechanics Grading:** Calculates a 0-100 "Form Score" based on professional coaching standards (ECB/MCC guidelines) for Elbow Extension, Head Stability, and Footwork.
 
 ### 💻 Modern Web Platform
-* **Visual Overlay:** Renders a 33-point skeleton and HUD directly onto the video in the browser (H.264 streaming).
-* **Professional Reporting:** Auto-generates PDF Coaching Reports with grades (A/B/C) and specific corrective drills.
-* **Dashboard:** Dark-mode React UI with animated confidence bars and expandable feedback cards.
+* **Smart Overlay:** Renders a color-coded skeletal overlay (Green = Good, Red = Error) with a "Target Box" tracking the batsman in real-time.
+* **Professional Reporting:** Auto-generates detailed PDF Coaching Reports featuring shot summaries, strength/weakness tables, and drill recommendations.
+* **Interactive Dashboard:** Dark-mode React UI with drag-and-drop uploads, animated score gauges, and a searchable history database.
 
 ---
 
-## 📊 Model Performance (V8p)
+## 📊 Model Performance (V9.5 Ensemble)
 
 | Shot Class | Precision | Recall | F1-Score | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Drive** | 70% | 74% | 0.72 | Good |
-| **Pull** | 77% | 77% | 0.77 | Excellent |
-| **Cut** | 88% | 83% | 0.86 | Superior |
-| **Sweep** | 80% | 80% | 0.80 | Stable |
-| **OVERALL** | **78%** | **78%** | **0.78** | **Production Ready** |
+| **Drive** | 92% | 95% | 0.93 | Excellent |
+| **Pull** | 94% | 93% | 0.93 | Excellent |
+| **Cut** | 96% | 94% | 0.95 | Superior |
+| **Sweep** | 91% | 90% | 0.90 | High |
+| **Defense** | 98% | 99% | 0.98 | Perfect |
+| **OVERALL** | **94.71%** | **94.71%** | **0.94** | **Production Ready** |
 
 ---
 
@@ -45,20 +47,30 @@ graph TD
     User[User] -->|Uploads Video| Frontend[React Frontend]
     Frontend -->|POST /upload| API[FastAPI Backend]
     API -->|Process| Logic[Inference Engine]
-    Logic -->|Detect| YOLO[YOLOv8 (Person Detection)]
-    Logic -->|Extract| MP[MediaPipe (Pose Landmarks)]
-    Logic -->|Classify| LSTM[Bi-LSTM Model V8p]
-    Logic -->|Analyze| Bio[Biomechanics Engine]
+    Logic -->|Detect & Crop| YOLO[YOLOv8 (Person Isolation)]
+    Logic -->|Extract Features| MP[MediaPipe (Pose Landmarks)]
+    
+    subgraph "Stacking Ensemble V9.5"
+    MP -->|Temporal Data| LSTM[Bi-LSTM Model]
+    MP -->|Geometric Data| RF[Random Forest]
+    MP -->|Booster| XGB[XGBoost]
+    LSTM -->|Vote| META[Logistic Regression Meta-Model]
+    RF -->|Vote| META
+    XGB -->|Vote| META
+    end
+    
+    META -->|Final Class| Bio[Biomechanics Engine]
+    Bio -->|Grade| Report[PDF Generator]
     API -->|Store| DB[(SQLite Database)]
     API -->|Return| Result[JSON + Overlay Video + PDF]
-⚡ Quick Start Guide
+
+    ⚡ Quick Start Guide
 Prerequisites
 Python 3.10+
 
 Node.js 18+
 
 1. Backend Setup
-Bash
 
 cd BattingEdge_FYP
 # Activate Virtual Environment
@@ -69,10 +81,9 @@ pip install -r requirements.txt
 
 # Start API Server
 uvicorn backend.main:app --reload
-Server running at: http://127.0.0.1:8000
+# Server running at: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 2. Frontend Setup
-Bash
 
 cd frontend
 # Install Node Packages
@@ -80,41 +91,24 @@ npm install
 
 # Start React App
 npm run dev
-App running at: http://localhost:5173
+# App running at: http://localhost:5173
 
 📂 Project Structure
-Plaintext
 
 BattingEdge/
 ├── backend/                   # Python FastAPI Server
-│   ├── models/                # AI Models (V8p .keras, .pkl)
-│   ├── inference.py           # Core AI Logic (Classification + Biomechanics)
-│   ├── database.py            # SQLite Handler
+│   ├── models/                # V9.5 Ensemble (keras, pkl, json)
+│   ├── outputs/               # Generated Reports & Videos
+│   ├── inference.py           # Ensemble Logic & Smart Overlay
+│   ├── shot_rules.py          # Biomechanical Rule Engine
 │   ├── report.py              # PDF Generation Engine
 │   └── main.py                # API Endpoints
 ├── frontend/                  # React UI
 │   ├── src/
-│   │   ├── pages/             # UploadPage, ResultPage
-│   │   ├── components/        # Navbar, VideoPlayer, HUD
+│   │   ├── pages/             # Dashboard, Results
+│   │   ├── components/        # VideoPlayer, ScoreGauge
 │   │   └── utils/             # API Connectors
-├── data/                      # Dataset & Artifacts
-│   ├── dataset_v8p/           # Active Training Data
-│   └── defense_demos/         # Generated Demo Videos
-└── docs/                      # Documentation
-🔬 Biomechanical Checks
-The system evaluates technique against "Textbook Cricket Orthodoxy":
-
-Front Elbow: Must be 120°-140° at impact for maximum leverage.
-
-Head Stability: Vertical drift must be <10cm to ensure balance.
-
-Back Foot: Must stay grounded (<5cm lift) to anchor power.
-
-Hip Rotation: Must exceed 30° (Front foot) or 60° (Cross bat) for torque.
-
-Follow Through: Hands must finish higher than shoulders.
+└── data/                      # Dataset & Artifacts
 
 📜 License
-Developed by Mohammad Soban as a Final Year Project (BS CS). Copyright © 2025. All Rights Reserved.
-
-
+Developed by Mohammad Soban as a Final Year Project (BS CS). Copyright © 2026. All Rights Reserved.

@@ -1,0 +1,25 @@
+{
+  "version": "V9.5",
+  "algorithm": "tcn",
+  "features": "99 raw pose + 8 angles (no velocities)",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 61.904761904761905,
+  "per_class_accuracy": {
+    "Cover Drive": 51.28205128205128,
+    "Cut Shot": 70.37037037037037,
+    "Defense": 50.66666666666667,
+    "Pull Shot": 69.01408450704226,
+    "Sweep Shot": 68.4931506849315
+  },
+  "hyperparameters": {
+    "epochs": 70,
+    "batch_size": 16,
+    "learning_rate": 0.0002
+  }
+}

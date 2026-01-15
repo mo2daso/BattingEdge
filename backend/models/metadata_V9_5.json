@@ -1,0 +1,29 @@
+{
+  "version": "V9.5",
+  "features": "99 raw pose + 8 angles (no velocities)",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 91.7989417989418,
+  "per_class_accuracy": {
+    "Cover Drive": 87.17948717948718,
+    "Cut Shot": 87.65432098765432,
+    "Defense": 97.33333333333334,
+    "Pull Shot": 88.73239436619718,
+    "Sweep Shot": 98.63013698630137
+  },
+  "comparison_to_v9": {
+    "v9_accuracy": 81.0,
+    "v9_5_accuracy": 91.7989417989418,
+    "improvement": 10.798941798941797
+  },
+  "hyperparameters": {
+    "epochs": 60,
+    "batch_size": 16,
+    "learning_rate": 0.0005
+  }
+}

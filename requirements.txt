@@ -1,13 +1,15 @@
 # --- Core Computer Vision ---
-opencv-python
+# NOTE: Versions pinned to ensure TensorFlow/MediaPipe compatibility
+numpy==1.26.4
+opencv-python-headless<4.10.0
 mediapipe
 ultralytics
 pillow
 
 # --- Data Science & ML ---
-numpy
 pandas
 scikit-learn
+xgboost
 matplotlib
 seaborn
 tensorflow

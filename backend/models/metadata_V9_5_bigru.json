@@ -1,0 +1,25 @@
+{
+  "version": "V9.5",
+  "algorithm": "bigru",
+  "features": "99 raw pose + 8 angles (no velocities)",
+  "classes": [
+    "Cover Drive",
+    "Cut Shot",
+    "Defense",
+    "Pull Shot",
+    "Sweep Shot"
+  ],
+  "test_accuracy": 91.7989417989418,
+  "per_class_accuracy": {
+    "Cover Drive": 91.02564102564102,
+    "Cut Shot": 90.12345679012346,
+    "Defense": 96.0,
+    "Pull Shot": 88.73239436619718,
+    "Sweep Shot": 93.15068493150685
+  },
+  "hyperparameters": {
+    "epochs": 60,
+    "batch_size": 16,
+    "learning_rate": 0.0005
+  }
+}
