@@ -1,0 +1,32 @@
+{
+  "version": "V10_new_models",
+  "n_classes": 8,
+  "classes": [
+    "cover_drive",
+    "cut_shot",
+    "defense",
+    "flick_shot",
+    "lofted_shot",
+    "pull_shot",
+    "straight_drive",
+    "sweep_shot"
+  ],
+  "sequence_len": 50,
+  "features_dim": 107,
+  "base_models": [
+    "CNN",
+    "CNN-LSTM",
+    "TCN",
+    "Transformer"
+  ],
+  "meta_learner": "LogisticRegression (multinomial)",
+  "training_device": "CPU",
+  "accuracies": {
+    "cnn": 90.01,
+    "cnn_lstm": 89.38,
+    "tcn": 89.7,
+    "transformer": 85.91,
+    "new_ensemble": 92.32,
+    "mega_ensemble": 93.59
+  }
+}

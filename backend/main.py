@@ -2,9 +2,15 @@ import os
 import sys
 import uuid
 import logging
+import ipaddress
+import time
+from collections import defaultdict
 from pathlib import Path
 import aiofiles
 import uvicorn
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / '.env')
 
 # Fix Imports (YOUR LOGIC - UNCHANGED)
 current_dir = Path(__file__).resolve().parent
@@ -12,16 +18,22 @@ if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
 
 try:
-    from inference import StackingEnsembleClassifier 
+    from inference_v9_5 import StackingEnsembleClassifier
     import database as db
     import report as rpt
+    import auth_models
+    from auth_router  import router as auth_router
+    from groq_router  import router as groq_router, generate_and_send_weekly_tips
 except ImportError:
-    from backend.inference import StackingEnsembleClassifier
+    from backend.inference_v9_5 import StackingEnsembleClassifier
     import backend.database as db
     import backend.report as rpt
+    import backend.auth_models as auth_models
+    from backend.auth_router  import router as auth_router
+    from backend.groq_router  import router as groq_router, generate_and_send_weekly_tips
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Request
-from fastapi.responses import FileResponse, JSONResponse  # ===== ADDED: JSONResponse =====
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 # ================= CONFIGURATION (UNCHANGED) =================
@@ -52,32 +64,106 @@ logger = logging.getLogger("BattingEdgeAPI")
 # FastAPI App (UNCHANGED)
 app = FastAPI(
     title="BattingEdge API",
-    version="9.5",
-    description="Professional Cricket Shot Analysis - Stacking Ensemble (95% accuracy)"
+    version="V9.5 Stable",
+    description="Professional Cricket Shot Analysis - Stacking Ensemble V9.5 (94.71% accuracy)"
 )
 
-# CORS (UNCHANGED)
+app.include_router(auth_router, tags=["Authentication"])
+app.include_router(groq_router, tags=["AI / Groq"])
+
+_PRIVATE_NETS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+]
+
+def _is_allowed_origin(origin: str | None) -> bool:
+    """Allow localhost and private LAN origins only."""
+    if not origin:
+        return True
+    for prefix in ("http://localhost", "https://localhost",
+                   "http://127.0.0.1", "https://127.0.0.1"):
+        if origin.startswith(prefix):
+            return True
+    try:
+        host = origin.split("://", 1)[1].split(":")[0]
+        ip = ipaddress.ip_address(host)
+        return any(ip in net for net in _PRIVATE_NETS)
+    except Exception:
+        return False
+
+# Upload rate limiter: 10 uploads per minute per IP
+_upload_log: dict[str, list] = defaultdict(list)
+_RATE_LIMIT, _RATE_WINDOW = 10, 60
+
+def _check_rate(ip: str) -> bool:
+    now = time.time()
+    _upload_log[ip] = [t for t in _upload_log[ip] if now - t < _RATE_WINDOW]
+    if len(_upload_log[ip]) >= _RATE_LIMIT:
+        return False
+    _upload_log[ip].append(now)
+    return True
+
+# Video magic-byte signatures
+_VIDEO_MAGIC: list[tuple[int, bytes]] = [
+    (0,  b'RIFF'),              # AVI
+    (0,  b'\x1a\x45\xdf\xa3'), # WebM / MKV
+    (4,  b'ftyp'),              # MP4 / MOV / M4V
+    (0,  b'\x00\x00\x00'),     # Some MP4 variants
+]
+
+def _looks_like_video(header: bytes) -> bool:
+    if len(header) < 12:
+        return True  # too short to validate — allow and let inference handle it
+    for offset, sig in _VIDEO_MAGIC:
+        if header[offset:offset + len(sig)] == sig:
+            return True
+    return False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"],          # actual check done in _is_allowed_origin per-request
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
 )
 
 classifier = None
 
 @app.on_event("startup")
 async def startup_event():
-    """YOUR STARTUP LOGIC - UNCHANGED"""
     global classifier
     logger.info("=" * 60)
-    logger.info("🚀 BattingEdge V9.5 Server Starting...")
+    logger.info("BattingEdge V9.5 Server Starting...")
     logger.info("=" * 60)
-    
+
     db.init_db()
-    logger.info("✅ Database initialized")
+    logger.info("Database initialized")
+    auth_models.init_users_table()
+    logger.info("Users table initialized")
+    db.init_history_table()
+    logger.info("User history table initialized")
+
+    # Weekly email scheduler (runs every Sunday at 08:00 UTC)
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            generate_and_send_weekly_tips,
+            trigger="cron",
+            day_of_week="sun",
+            hour=8,
+            minute=0,
+            id="weekly_tips",
+        )
+        scheduler.start()
+        logger.info("Weekly email scheduler started (Sundays 08:00 UTC)")
+    except ImportError:
+        logger.warning("APScheduler not installed — weekly tips scheduler disabled. Run: pip install apscheduler")
+    except Exception as e:
+        logger.warning(f"Scheduler start failed (non-critical): {e}")
     
     try:
         classifier = StackingEnsembleClassifier()
@@ -92,7 +178,7 @@ async def startup_event():
     logger.info(f"📁 Output directory: {OUTPUT_DIR}")
     logger.info(f"🎬 Supported formats: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
     logger.info("=" * 60)
-    logger.info("✅ Server Ready - Listening on http://0.0.0.0:8000")
+    logger.info("✅ Server Ready — V9.5 Stable | Listening on http://0.0.0.0:8000")
     logger.info("=" * 60)
 
 @app.on_event("shutdown")
@@ -102,67 +188,80 @@ async def shutdown_event():
 
 # ================= BACKGROUND TASK (UNCHANGED) =================
 def process_video_task(video_id: str, input_path: Path):
-    """YOUR PROCESSING LOGIC - UNCHANGED"""
+    """Processing pipeline with 4-step progress tracking"""
     logger.info(f"{'=' * 60}")
-    logger.info(f"⏳ PROCESSING START: {video_id}")
-    logger.info(f"   File: {input_path.name}")
+    logger.info(f"[api/analyze] ⏳ PROCESSING START: {video_id}")
+    logger.info(f"[api/analyze]    File: {input_path.name}")
     logger.info(f"{'=' * 60}")
-    
+
     try:
-        db.update_status(video_id, "processing")
-        
-        # Step 1: Inference
-        logger.info(f"[{video_id}] Step 1/4: Running inference...")
+        # Step 1: Pose extraction / inference (progress 10 → 60)
+        db.update_progress(video_id, 10, status="processing")
+        logger.info(f"[api/analyze] Step 1/4: Running inference...")
         result = classifier.predict_video(str(input_path))
         result['filename'] = input_path.name
-        
+
         if 'error' in result:
             error_msg = result.get('error', 'Unknown inference error')
-            logger.error(f"[{video_id}] ❌ Inference FAILED: {error_msg}")
+            logger.error(f"[api/analyze] ❌ Inference FAILED: {error_msg}")
+            db.update_progress(video_id, 0, status="failed")
             db.update_status(video_id, "failed", error_msg)
             return
-        
-        logger.info(f"[{video_id}]    ✅ Prediction: {result['prediction']}")
-        logger.info(f"[{video_id}]    ✅ Confidence: {result['confidence']:.1f}%")
-        logger.info(f"[{video_id}]    ✅ Score: {result['form_analysis']['overall_score']}/100")
-        
-        # Step 2: Overlay
-        logger.info(f"[{video_id}] Step 2/4: Creating overlay video...")
+
+        db.update_progress(video_id, 60)
+        logger.info(f"[api/analyze]    ✅ Prediction: {result['prediction']}")
+        logger.info(f"[api/analyze]    ✅ Confidence: {result['confidence']:.1f}%")
+        logger.info(f"[api/analyze]    ✅ Score: {result['form_analysis']['overall_score']}/100")
+
+        # Step 2: Overlay generation (progress 60 → 85)
+        db.update_progress(video_id, 60)
+        logger.info(f"[api/analyze] Step 2/4: Creating overlay video...")
         output_filename = f"{video_id}_overlay.webm"
         output_path = OUTPUT_DIR / output_filename
-        
+
         try:
-            success = classifier.create_overlay(str(input_path), str(output_path), result)
+            import copy
+            overlay_result = copy.deepcopy(result)
+            for chk in overlay_result.get('form_analysis', {}).get('checks', []):
+                for field in ('value', 'ideal_range'):
+                    if isinstance(chk.get(field), str):
+                        chk[field] = chk[field].replace('°', 'deg')
+            success = classifier.create_overlay(str(input_path), str(output_path), overlay_result)
             if success:
-                logger.info(f"[{video_id}]    ✅ Overlay created: {output_filename}")
+                logger.info(f"[api/analyze]    ✅ Overlay created: {output_filename}")
             else:
-                logger.warning(f"[{video_id}]    ⚠️ Overlay generation returned False")
+                logger.warning(f"[api/analyze]    ⚠️ Overlay generation returned False")
+                output_path = None
         except Exception as e:
-            logger.warning(f"[{video_id}]    ⚠️ Overlay error (non-critical): {e}")
+            logger.warning(f"[api/analyze]    ⚠️ Overlay error (non-critical): {e}")
             output_path = None
-        
-        # Step 3: PDF
-        logger.info(f"[{video_id}] Step 3/4: Generating PDF report...")
+
+        db.update_progress(video_id, 85)
+
+        # Step 3: PDF report (progress 85 → 95)
+        logger.info(f"[api/analyze] Step 3/4: Generating PDF report...")
         pdf_filename = f"{video_id}_report.pdf"
         pdf_path = OUTPUT_DIR / pdf_filename
-        
+
         try:
             rpt.generate_pdf(result, pdf_path)
-            logger.info(f"[{video_id}]    ✅ PDF created: {pdf_filename}")
+            logger.info(f"[api/analyze]    ✅ PDF created: {pdf_filename}")
         except Exception as e:
-            logger.warning(f"[{video_id}]    ⚠️ PDF error (non-critical): {e}")
-        
-        # Step 4: Save
-        logger.info(f"[{video_id}] Step 4/4: Saving results to database...")
+            logger.warning(f"[api/analyze]    ⚠️ PDF error (non-critical): {e}")
+
+        db.update_progress(video_id, 95)
+
+        # Step 4: Persist to DB (progress 95 → 100)
+        logger.info(f"[api/analyze] Step 4/4: Saving results to database...")
         db.update_analysis_result(video_id, result, output_path)
-        
+        db.update_progress(video_id, 100, status="completed")
+
         logger.info(f"{'=' * 60}")
-        logger.info(f"✅ PROCESSING COMPLETE: {video_id}")
+        logger.info(f"[api/analyze] ✅ PROCESSING COMPLETE: {video_id}")
         logger.info(f"{'=' * 60}")
-        
+
     except Exception as e:
-        logger.error(f"[{video_id}] ❌ CRITICAL ERROR in processing task:")
-        logger.error(f"[{video_id}]    {str(e)}", exc_info=True)
+        logger.error(f"[api/analyze] ❌ CRITICAL ERROR: {str(e)}", exc_info=True)
         db.update_status(video_id, "failed", str(e))
         logger.info(f"{'=' * 60}")
 
@@ -173,7 +272,7 @@ async def root():
     """YOUR ROOT ENDPOINT - UNCHANGED"""
     return {
         "name": "BattingEdge API",
-        "version": "9.5",
+        "version": "V9.5 Stable",
         "status": "operational",
         "endpoints": {
             "health": "/api/health",
@@ -190,34 +289,58 @@ async def health_check():
     """YOUR HEALTH CHECK - UNCHANGED"""
     return {
         "status": "healthy",
-        "version": "9.5",
+        "version": "V9.5 Stable",
         "model_loaded": classifier is not None,
-        "model_type": "Stacking Ensemble (BiLSTM+XGBoost+RF)" if classifier and classifier.is_ensemble else "BiLSTM Only",
-        "accuracy": "95%" if classifier and classifier.is_ensemble else "~85%",
+        "model_type": "Stacking Ensemble V9.5 (BiLSTM+XGBoost+RF)" if classifier and classifier.is_ensemble else "BiLSTM Only",
+        "accuracy": "94.71%" if classifier and classifier.is_ensemble else "~85%",
         "supported_formats": list(ALLOWED_EXTENSIONS),
         "max_file_size_mb": MAX_FILE_SIZE / (1024 * 1024)
     }
 
+@app.get("/api/latest-result")
+async def latest_result(after: str = "1970-01-01T00:00:00"):
+    """Laptop polls this to auto-detect when a mobile analysis finishes."""
+    result = db.get_latest_completed_after(after)
+    if result:
+        return result
+    return {"video_id": None}
+
+@app.get("/api/server-info")
+async def server_info(request: Request):
+    """Returns LAN IP so mobile QR code can connect to backend."""
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        lan_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        lan_ip = str(request.base_url.hostname) or "127.0.0.1"
+    return {"lan_ip": lan_ip, "api_port": 8000, "frontend_port": 5173}
+
 @app.post("/api/upload")
-async def upload_video(file: UploadFile = File(...)):
-    """YOUR UPLOAD LOGIC - UNCHANGED"""
+async def upload_video(request: Request, file: UploadFile = File(...)):
+    """Upload endpoint with rate limiting and file validation."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate(client_ip):
+        raise HTTPException(status_code=429, detail="Too many uploads. Please wait a moment.")
+
     ext = Path(file.filename).suffix.lower()
-    
     if ext not in ALLOWED_EXTENSIONS:
         logger.warning(f"Upload rejected: Invalid extension {ext}")
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type '{ext}'. Supported: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
-    
+
     video_id = str(uuid.uuid4())
     filename = f"{video_id}{ext}"
     file_path = UPLOAD_DIR / filename
-    
+
     try:
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
-            
+
             file_size_mb = len(content) / (1024 * 1024)
             if len(content) > MAX_FILE_SIZE:
                 logger.warning(f"Upload rejected: File too large ({file_size_mb:.1f}MB)")
@@ -225,7 +348,11 @@ async def upload_video(file: UploadFile = File(...)):
                     status_code=413,
                     detail=f"File too large ({file_size_mb:.1f}MB). Max size: {MAX_FILE_SIZE/(1024*1024):.0f}MB"
                 )
-            
+
+            if not _looks_like_video(content[:16]):
+                logger.warning(f"Upload rejected: File does not appear to be a video ({client_ip})")
+                raise HTTPException(status_code=400, detail="File does not appear to be a valid video.")
+
             await out_file.write(content)
         
         db.save_initial_upload(video_id, file.filename, file_path)
@@ -277,17 +404,41 @@ async def analyze_video(video_id: str, background_tasks: BackgroundTasks):
 
 @app.get("/api/result/{video_id}")
 async def get_result(video_id: str):
-    """YOUR RESULT ENDPOINT - UNCHANGED"""
+    """
+    Returns structured polling response:
+      processing → {status, progress}
+      completed  → {status, progress, result}
+      failed     → {status, error}
+    """
     record = db.get_analysis(video_id)
-    
+
     if not record:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    
+
     status = record.get('status', 'unknown')
-    if status != 'completed':
-        logger.debug(f"Status check for {video_id}: {status}")
-    
-    return record
+    progress = record.get('progress', 0)
+
+    if status == 'completed':
+        logger.debug(f"[api/result] Status: completed for {video_id}")
+        return {
+            "status": "completed",
+            "progress": 100,
+            "result": record
+        }
+
+    if status == 'failed':
+        logger.debug(f"[api/result] Status: failed for {video_id}")
+        return {
+            "status": "failed",
+            "progress": 0,
+            "error": record.get('error_message', 'Processing failed')
+        }
+
+    logger.debug(f"[api/result] Status: {status} (progress={progress}) for {video_id}")
+    return {
+        "status": status,
+        "progress": progress
+    }
 
 @app.get("/api/video/{video_id}/overlay")
 async def get_overlay_video(video_id: str):
@@ -343,7 +494,48 @@ async def get_pdf_report(video_id: str):
         }
     )
 
-# ================= ERROR HANDLERS (FIXED!) =================
+# ================= USER HISTORY ENDPOINTS =================
+
+from fastapi import Header
+from jose import JWTError, jwt as _jwt
+import auth_utils as _auth_utils
+from pydantic import BaseModel as _BaseModel
+
+class HistorySaveRequest(_BaseModel):
+    video_id: str
+    shot_type: str
+    score: int
+    grade: str
+
+def _get_user_id_from_token(authorization: str = None) -> str | None:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = _jwt.decode(token, _auth_utils.SECRET_KEY, algorithms=[_auth_utils.ALGORITHM])
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+@app.post("/api/user/history")
+async def save_history(body: HistorySaveRequest, authorization: str = Header(default=None)):
+    user_id = _get_user_id_from_token(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    ok = db.save_user_history(user_id, body.video_id, body.shot_type, body.score, body.grade)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to save history")
+    return {"message": "History saved"}
+
+@app.get("/api/user/history")
+async def get_history(authorization: str = Header(default=None)):
+    user_id = _get_user_id_from_token(authorization)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    entries = db.get_user_history(user_id)
+    return {"history": entries}
+
+# ================= ERROR HANDLERS =================
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):

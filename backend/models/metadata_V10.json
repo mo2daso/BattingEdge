@@ -1,0 +1,32 @@
+{
+  "version": "V10",
+  "n_classes": 8,
+  "classes": [
+    "cover_drive",
+    "cut_shot",
+    "defense",
+    "flick_shot",
+    "lofted_shot",
+    "pull_shot",
+    "straight_drive",
+    "sweep_shot"
+  ],
+  "sequence_len": 50,
+  "features_dim": 107,
+  "yolo_in_training": true,
+  "base_models": [
+    "BiLSTM",
+    "BiGRU",
+    "RandomForest",
+    "XGBoost"
+  ],
+  "meta_learner": "LogisticRegression",
+  "training_device": "CPU",
+  "accuracies": {
+    "bilstm": 90.12,
+    "bigru": 91.17,
+    "rf": 78.55,
+    "xgboost": 81.91,
+    "ensemble": 93.27
+  }
+}

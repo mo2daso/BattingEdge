@@ -27,7 +27,7 @@ const UploadPage = () => {
       {/* Footer */}
       <footer className="py-8 bg-jet-black border-t border-white/10 text-center">
         <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
-          <img src="/logo.png" alt="Logo" className="w-6 h-6 grayscale" />
+          <img src="/be_logo.png" alt="Logo" className="w-6 h-6 grayscale" />
           <span className="font-bold text-sm">BattingEdge AI</span>
         </div>
         <p className="text-xs text-gray-600">

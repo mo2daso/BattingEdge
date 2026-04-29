@@ -31,6 +31,18 @@ class ShotRules:
             if min_s <= score <= max_s:
                 return level, desc
         return "Developing", "Keep practicing!"
+
+    @staticmethod
+    def get_grade(score: int) -> str:
+        """Map numeric score to letter grade (A+/A/B+/B/C+/C/D/F)"""
+        if score >= 90: return "A+"
+        if score >= 80: return "A"
+        if score >= 75: return "B+"
+        if score >= 65: return "B"
+        if score >= 60: return "C+"
+        if score >= 50: return "C"
+        if score >= 40: return "D"
+        return "F"
     
     @staticmethod
     def get_shot_standards(shot_type: str) -> Dict:
@@ -491,7 +503,7 @@ class ShotRules:
             'overall_score': overall_score,
             'performance_level': performance_level,
             'level': performance_level,
-            'grade': performance_level[0],
+            'grade': ShotRules.get_grade(overall_score),
             'summary': summary,
             'strengths': strengths[:3] if strengths else ["You're on the right track!"],
             'key_improvements': improvements[:3] if improvements else ["Keep practicing consistently!"],

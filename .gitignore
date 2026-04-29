@@ -1,4 +1,9 @@
 # ===========================
+# 0. PROJECT-SPECIFIC
+# ===========================
+CLAUDE.md
+
+# ===========================
 # 1. PYTHON & SYSTEM GARBAGE
 # ===========================
 __pycache__/
@@ -9,6 +14,9 @@ venv/
 env/
 .env
 .env.local
+.env.*
+backend/.env
+!backend/.env.example
 .vscode/
 .idea/
 .DS_Store
@@ -56,12 +64,14 @@ features/
 *.npz
 
 # ===========================
-# 5. GENERATED DEMOS
+# 5. GENERATED DEMOS & BEST VIDEOS
 # ===========================
 # Ignore the output videos generated for defense
 data/demo_outputs/
 data/defense_demos/
 data/demo_videos/
+best_videos/
+**/best_videos/
 
 # ===========================
 # 6. GLOBAL FILE BANS (HEAVY)
@@ -82,7 +92,7 @@ data/demo_videos/
 # ===========================
 # 7. MODELS (SELECTIVE)
 # ===========================
-# Ignore heavy Neural Network weights
+# Ignore heavy neural network weights everywhere EXCEPT our V9.5 models
 *.keras
 *.h5
 *.pt
@@ -91,10 +101,21 @@ data/demo_videos/
 *.onnx
 backend/models/checkpoints/
 
-# EXCEPTION: Keep small pickle files and configs
+# EXCEPTION: Keep V9.5 model files (safe for GitHub — all under 10MB)
+!backend/models/battingedge_V9_5_best.keras
 !backend/models/*.pkl
 !backend/models/*.json
-!backend/models/scaler_*.npy
+!backend/models/scaler_V9_5.pkl
+!backend/models/classes_V9_5.pkl
+
+# V10 RF is 132MB — too large for GitHub, block explicitly
+backend/models/battingedge_V10_random_forest_best.pkl
+
+# Keep YOLO out (large)
+yolov8n.pt
+notebooks/yolov8n.pt
+backend/models/yolov8n.pt
+backend/yolov8n.pt
 
 # Specific YOLO model files (too large)
 yolov8n.pt

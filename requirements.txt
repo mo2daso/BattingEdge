@@ -1,29 +1,30 @@
-# --- Core Computer Vision ---
-# NOTE: Versions pinned to ensure TensorFlow/MediaPipe compatibility
+# ─── Computer Vision ──────────────────────────────────────
 numpy==1.26.4
 opencv-python-headless<4.10.0
 mediapipe
-ultralytics
 pillow
 
-# --- Data Science & ML ---
-pandas
+# ─── Machine Learning ─────────────────────────────────────
 scikit-learn
 xgboost
-matplotlib
-seaborn
 tensorflow
-keras
+joblib
 
-# --- Backend API ---
+# ─── Backend API ──────────────────────────────────────────
 fastapi
 uvicorn[standard]
-python-multipart    # For File Uploads
-sqlalchemy          # For Database interactions
-aiofiles            # For Async File I/O
-reportlab           # For PDF Generation
+python-multipart
+aiofiles
+python-dotenv
+reportlab
 
-# --- Utilities ---
-tqdm
-joblib
-datasets
+# ─── Authentication ───────────────────────────────────────
+python-jose[cryptography]
+bcrypt
+google-auth
+
+# ─── AI Assistant (Groq) ──────────────────────────────────
+httpx
+
+# ─── Scheduler (weekly email tips) ───────────────────────
+apscheduler

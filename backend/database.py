@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import uuid
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -13,7 +14,7 @@ def init_db():
     try:
         conn = sqlite3.connect(str(DB_PATH))
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS analyses (
                 video_id TEXT PRIMARY KEY,
@@ -27,14 +28,27 @@ def init_db():
                 overlay_path TEXT,
                 status TEXT DEFAULT 'uploaded',
                 error_message TEXT,
+                progress INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
+        # Schema migration: add progress column if it doesn't exist yet
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN progress INTEGER DEFAULT 0')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added progress column")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        # NOTE: users table is managed exclusively by auth_models.init_users_table()
+        # which runs on startup after init_db(). Do NOT create users table here —
+        # the correct schema (nullable password_hash for Google OAuth) lives in auth_models.
+
         conn.commit()
         conn.close()
         logger.info(f"✅ Database initialized: {DB_PATH}")
-        
+
     except Exception as e:
         logger.error(f"❌ Database init failed: {e}")
         raise
@@ -121,6 +135,51 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
     except Exception as e:
         logger.error(f"❌ Failed to update analysis: {e}")
         raise
+    finally:
+        conn.close()
+
+def update_progress(video_id: str, progress: int, status: str = None) -> None:
+    """Update processing progress (0-100). Optionally update status at the same time."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    try:
+        if status:
+            cursor.execute(
+                'UPDATE analyses SET progress = ?, status = ? WHERE video_id = ?',
+                (progress, status, video_id)
+            )
+        else:
+            cursor.execute(
+                'UPDATE analyses SET progress = ? WHERE video_id = ?',
+                (progress, video_id)
+            )
+        conn.commit()
+        logger.debug(f"Progress updated: {video_id} → {progress}%")
+    except Exception as e:
+        logger.error(f"❌ Failed to update progress: {e}")
+    finally:
+        conn.close()
+
+
+def get_latest_completed_after(after_iso: str) -> dict | None:
+    """Returns the most recently completed analysis created after a given ISO timestamp."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            SELECT video_id, shot_type, form_score, created_at
+            FROM analyses
+            WHERE status = 'completed' AND created_at > ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''', (after_iso,))
+        row = cursor.fetchone()
+        if row:
+            return {'video_id': row[0], 'shot_type': row[1], 'form_score': row[2], 'created_at': row[3]}
+        return None
+    except Exception as e:
+        logger.error(f"❌ get_latest_completed_after failed: {e}")
+        return None
     finally:
         conn.close()
 
@@ -233,3 +292,122 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+
+# ==================== USER AUTH ====================
+
+def create_user(email: str, name: str, password_hash: str) -> str | None:
+    conn = sqlite3.connect(str(DB_PATH))
+    cursor = conn.cursor()
+    try:
+        user_id = str(uuid.uuid4())
+        cursor.execute(
+            'INSERT INTO users (user_id, email, name, password_hash) VALUES (?, ?, ?, ?)',
+            (user_id, email.lower().strip(), name.strip(), password_hash),
+        )
+        conn.commit()
+        logger.info(f"✅ User created: {email}")
+        return user_id
+    except sqlite3.IntegrityError:
+        logger.warning(f"⚠️ Email already registered: {email}")
+        return None
+    except Exception as e:
+        logger.error(f"❌ Failed to create user: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_by_email(email: str) -> dict | None:
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            'SELECT * FROM users WHERE email = ? AND is_active = 1',
+            (email.lower().strip(),),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"❌ Failed to get user by email: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_by_id(user_id: str) -> dict | None:
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            'SELECT * FROM users WHERE user_id = ? AND is_active = 1',
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"❌ Failed to get user by id: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+# ==================== USER HISTORY ====================
+
+def init_history_table():
+    """Create user_history table if not exists."""
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_history (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    TEXT    NOT NULL,
+                video_id   TEXT    NOT NULL,
+                shot_type  TEXT,
+                score      INTEGER DEFAULT 0,
+                grade      TEXT,
+                created_at TEXT    DEFAULT (datetime('now')),
+                UNIQUE(user_id, video_id)
+            )
+        """)
+        conn.commit()
+        conn.close()
+        logger.info("✅ user_history table ready")
+    except Exception as e:
+        logger.error(f"❌ user_history table init failed: {e}")
+
+
+def save_user_history(user_id: str, video_id: str, shot_type: str, score: int, grade: str) -> bool:
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.execute(
+            """INSERT INTO user_history (user_id, video_id, shot_type, score, grade)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, video_id) DO UPDATE SET
+                 shot_type=excluded.shot_type, score=excluded.score, grade=excluded.grade""",
+            (user_id, video_id, shot_type, score, grade),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"❌ save_user_history failed: {e}")
+        return False
+
+
+def get_user_history(user_id: str) -> list:
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """SELECT video_id, shot_type, score, grade, created_at
+               FROM user_history WHERE user_id=? ORDER BY created_at DESC LIMIT 50""",
+            (user_id,),
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"❌ get_user_history failed: {e}")
+        return []
