@@ -353,7 +353,7 @@ const ResultPage = ({ onOpenAuth }) => {
             <ArrowLeft size={16} /> Back to Analysis
           </button>
           <a href={getPdfUrl(videoId)} target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-dim hover:border-neon-blue/40 transition-all text-sm font-medium"
+            className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl border border-border-dim hover:border-neon-blue/40 transition-all text-sm font-medium"
             style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>
             <Download size={15} /> Download Full PDF Report
           </a>
@@ -435,13 +435,13 @@ const ResultPage = ({ onOpenAuth }) => {
                 />
               </div>
               {/* Playback controls */}
-              <div className="flex items-center gap-2 px-1">
+              <div className="flex flex-wrap items-center gap-2 px-1">
                 <span className="text-xs font-medium" style={{ color: 'var(--text-dim)' }}>Speed:</span>
                 {[0.25, 0.5, 0.75, 1].map(s => (
                   <button
                     key={s}
                     onClick={() => applySpeed(s)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-all ${
                       playbackSpeed === s
                         ? 'bg-neon-blue text-black'
                         : 'border border-border-dim hover:border-border-soft'
@@ -620,17 +620,17 @@ const ResultPage = ({ onOpenAuth }) => {
                 Sign up free to get unlimited analyses, save your history, and track your progress over time.
               </p>
             </div>
-            <div className="flex gap-3 flex-shrink-0">
+            <div className="flex flex-wrap gap-3 flex-shrink-0">
               <button
                 onClick={() => onOpenAuth('login')}
-                className="px-5 py-2.5 rounded-xl border border-border-soft text-sm font-semibold hover:border-neon-blue/40 transition-all"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl border border-border-soft text-sm font-semibold hover:border-neon-blue/40 transition-all"
                 style={{ color: 'var(--text)' }}
               >
                 Sign In
               </button>
               <button
                 onClick={() => onOpenAuth('register')}
-                className="px-5 py-2.5 rounded-xl bg-neon-green text-black font-bold text-sm hover:opacity-90 transition-all"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-neon-green text-black font-bold text-sm hover:opacity-90 transition-all"
               >
                 Sign Up Free
               </button>

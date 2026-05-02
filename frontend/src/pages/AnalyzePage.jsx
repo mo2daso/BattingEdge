@@ -102,6 +102,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [trimEnd,       setTrimEnd]       = useState(0);
   const [videoUrl,      setVideoUrl]      = useState(null);
   const [isTrimming,    setIsTrimming]    = useState(false);
+  const [previewSpeed,  setPreviewSpeed]  = useState(1);
   const trimVideoRef = useRef(null);
 
   // ── File handling ───────────────────────────────────────────────────────────
@@ -456,58 +457,129 @@ const AnalyzePage = ({ onOpenAuth }) => {
                                     }
                                   }}
                                 />
+                                {/* Preview speed controls */}
+                                <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border-dim" style={{ background: 'var(--surface-2)' }}>
+                                  <span className="text-xs font-medium" style={{ color: 'var(--text-dim)' }}>Speed:</span>
+                                  {[0.25, 0.5, 0.75, 1].map(s => (
+                                    <button
+                                      key={s}
+                                      onClick={() => {
+                                        setPreviewSpeed(s);
+                                        if (trimVideoRef.current) trimVideoRef.current.playbackRate = s;
+                                      }}
+                                      className={`min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                        previewSpeed === s
+                                          ? 'bg-neon-blue text-black'
+                                          : 'border border-border-dim hover:border-border-soft'
+                                      }`}
+                                      style={previewSpeed !== s ? { background: 'var(--surface-3)', color: 'var(--text-muted)' } : {}}
+                                    >
+                                      {s}×
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
 
                             {/* Trim sliders — only if video is longer than 5s */}
                             {videoDuration > 5 && (
-                              <div className="mb-5 p-4 rounded-2xl border border-border-dim space-y-4" style={{ background: 'var(--surface-2)' }}>
-                                <div className="flex items-center gap-2 mb-1">
+                              <div className="mb-5 rounded-2xl border border-border-dim overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                                {/* Header */}
+                                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
                                   <Scissors size={13} className="text-neon-blue" />
                                   <span className="text-sm font-semibold text-white">Trim Clip</span>
-                                  <span className="ml-auto text-xs font-mono text-neon-green">
-                                    {trimStart}s → {trimEnd}s &nbsp;({trimEnd - trimStart}s selected)
-                                  </span>
+                                  <span className="ml-auto text-xs font-mono text-neon-green">{trimEnd - trimStart}s selected</span>
                                 </div>
-                                <div>
-                                  <div className="flex justify-between text-[11px] mb-1" style={{ color: 'var(--text-dim)' }}>
-                                    <span>Start</span><span>{trimStart}s</span>
+
+                                <div className="p-4 space-y-4">
+                                  {/* Visual timeline bar */}
+                                  <div className="relative h-9 rounded-lg overflow-hidden border border-border-dim" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                    {/* Left trimmed region */}
+                                    <div
+                                      className="absolute top-0 left-0 h-full"
+                                      style={{ width: `${(trimStart / videoDuration) * 100}%`, background: 'rgba(255,255,255,0.04)' }}
+                                    />
+                                    {/* Selected region */}
+                                    <div
+                                      className="absolute top-0 h-full border-x-2 border-neon-blue"
+                                      style={{
+                                        left: `${(trimStart / videoDuration) * 100}%`,
+                                        width: `${((trimEnd - trimStart) / videoDuration) * 100}%`,
+                                        background: 'rgba(0,212,255,0.22)',
+                                      }}
+                                    />
+                                    {/* Right trimmed region */}
+                                    <div
+                                      className="absolute top-0 right-0 h-full"
+                                      style={{ width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: 'rgba(255,255,255,0.04)' }}
+                                    />
+                                    {/* Labels overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
+                                      <span className="text-[10px] font-mono text-gray-500">0s</span>
+                                      <span className="text-[10px] font-mono text-neon-blue font-bold">{trimStart}s – {trimEnd}s</span>
+                                      <span className="text-[10px] font-mono text-gray-500">{videoDuration}s</span>
+                                    </div>
                                   </div>
-                                  <input
-                                    type="range" min={0} max={videoDuration - 1} value={trimStart}
-                                    onChange={e => {
-                                      const v = Math.min(Number(e.target.value), trimEnd - 1);
-                                      setTrimStart(v);
-                                      if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
-                                    }}
-                                    className="w-full accent-neon-blue"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="flex justify-between text-[11px] mb-1" style={{ color: 'var(--text-dim)' }}>
-                                    <span>End</span><span>{trimEnd}s</span>
+
+                                  {/* Legend */}
+                                  <div className="flex items-center gap-4 text-[11px]">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-3 h-3 rounded-sm border border-border-dim" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                                      <span style={{ color: 'var(--text-dim)' }}>Trimmed out</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-3 h-3 rounded-sm border-2 border-neon-blue" style={{ background: 'rgba(0,212,255,0.25)' }} />
+                                      <span className="text-neon-blue">Sent for analysis</span>
+                                    </div>
                                   </div>
-                                  <input
-                                    type="range" min={1} max={videoDuration} value={trimEnd}
-                                    onChange={e => {
-                                      const v = Math.max(Number(e.target.value), trimStart + 1);
-                                      setTrimEnd(v);
-                                      if (trimVideoRef.current) trimVideoRef.current.currentTime = trimStart;
+
+                                  {/* Start slider */}
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'var(--text-dim)' }}>
+                                      <span>Start</span>
+                                      <span className="font-mono text-white">{trimStart}s</span>
+                                    </div>
+                                    <input
+                                      type="range" min={0} max={videoDuration - 1} value={trimStart}
+                                      onChange={e => {
+                                        const v = Math.min(Number(e.target.value), trimEnd - 1);
+                                        setTrimStart(v);
+                                        if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
+                                      }}
+                                      className="w-full accent-neon-blue"
+                                    />
+                                  </div>
+
+                                  {/* End slider */}
+                                  <div>
+                                    <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'var(--text-dim)' }}>
+                                      <span>End</span>
+                                      <span className="font-mono text-white">{trimEnd}s</span>
+                                    </div>
+                                    <input
+                                      type="range" min={1} max={videoDuration} value={trimEnd}
+                                      onChange={e => {
+                                        const v = Math.max(Number(e.target.value), trimStart + 1);
+                                        setTrimEnd(v);
+                                        if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
+                                      }}
+                                      className="w-full accent-neon-blue"
+                                    />
+                                  </div>
+
+                                  {/* Preview button */}
+                                  <button
+                                    onClick={() => {
+                                      if (trimVideoRef.current) {
+                                        trimVideoRef.current.currentTime = trimStart;
+                                        trimVideoRef.current.play();
+                                      }
                                     }}
-                                    className="w-full accent-neon-blue"
-                                  />
+                                    className="w-full flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-neon-blue/40 text-neon-blue text-sm font-semibold hover:bg-neon-blue/10 transition-all"
+                                  >
+                                    ▶ Preview Selected Clip ({trimEnd - trimStart}s)
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    if (trimVideoRef.current) {
-                                      trimVideoRef.current.currentTime = trimStart;
-                                      trimVideoRef.current.play();
-                                    }
-                                  }}
-                                  className="text-xs text-neon-blue hover:underline"
-                                >
-                                  ▶ Preview selection
-                                </button>
                               </div>
                             )}
 

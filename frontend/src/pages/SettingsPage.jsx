@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Settings, Sun, Bell,
+  Settings, Sun,
   CheckCircle2, User, Lock, HelpCircle, Mail,
   Eye, EyeOff, ChevronDown, AlertCircle,
 } from 'lucide-react';
@@ -68,12 +68,6 @@ const SettingsPage = ({ onOpenAuth }) => {
   const { theme, toggleTheme }  = useTheme();
   const { user, logout, refetch } = useAuth();
 
-  // ── Subscription state ────────────────────────────────────────────────────
-  const [subEmail,   setSubEmail]   = useState(user?.email || '');
-  const [subName,    setSubName]    = useState(user?.full_name || '');
-  const [subLoading, setSubLoading] = useState(false);
-  const [subDone,    setSubDone]    = useState(false);
-
   // ── Avatar state ──────────────────────────────────────────────────────────
   const [avatarPick, setAvatarPick] = useState(() => parseInt(localStorage.getItem('be_avatar') || '0'));
   const [colorPick,  setColorPick]  = useState(() => parseInt(localStorage.getItem('be_avatar_color') || '0'));
@@ -102,31 +96,6 @@ const SettingsPage = ({ onOpenAuth }) => {
     setAvatarPick(idx);
     if (colorIdx !== undefined) setColorPick(colorIdx);
     toast.success('Avatar saved!');
-  };
-
-  const handleSubscribe = async () => {
-    if (!subEmail || !subEmail.includes('@')) { toast.error('Enter a valid email'); return; }
-    setSubLoading(true);
-    try {
-      await api.post('/api/subscribe', { email: subEmail, name: subName || 'Cricket Fan' });
-      setSubDone(true);
-      toast.success('Subscribed to cricket tips!');
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Subscription failed');
-    } finally {
-      setSubLoading(false);
-    }
-  };
-
-  const handleUnsubscribe = async () => {
-    if (!subEmail) return;
-    try {
-      await api.delete('/api/unsubscribe', { data: { email: subEmail } });
-      setSubDone(false);
-      toast.success('Unsubscribed successfully');
-    } catch {
-      toast.error('Could not unsubscribe');
-    }
   };
 
   const closePwForm  = () => { setPwOpen(false);    setCurPw(''); setNewPw(''); setConfirmPw(''); };
@@ -268,56 +237,6 @@ const SettingsPage = ({ onOpenAuth }) => {
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{user?.email || 'Sign in to save profile'}</p>
               </div>
             </div>
-          </SectionCard>
-
-          {/* ── Email Subscription ────────────────────────────────────── */}
-          <SectionCard icon={Mail} title="Cricket Tips Email Subscription" delay={0.15}>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              Get AI-generated batting tips, drills, and cricket facts straight to your inbox.
-              Powered by Groq AI. Unsubscribe any time.
-            </p>
-
-            {subDone ? (
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-neon-green/5 border border-neon-green/20">
-                <CheckCircle2 size={18} className="text-neon-green flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-neon-green">You're subscribed!</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Cricket tips will arrive in your inbox.
-                  </p>
-                </div>
-                <button onClick={handleUnsubscribe} className="ml-auto text-xs text-red-400 hover:underline">
-                  Unsubscribe
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <input
-                  type="email"
-                  placeholder="Your email"
-                  value={subEmail}
-                  onChange={e => setSubEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm border border-border-dim focus:border-neon-blue/50 outline-none transition-colors"
-                  style={{ background: 'var(--surface-3)', color: 'var(--text)' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Your name (optional)"
-                  value={subName}
-                  onChange={e => setSubName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm border border-border-dim focus:border-neon-blue/50 outline-none transition-colors"
-                  style={{ background: 'var(--surface-3)', color: 'var(--text)' }}
-                />
-                <button
-                  onClick={handleSubscribe}
-                  disabled={subLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all disabled:opacity-50"
-                >
-                  {subLoading ? <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <Bell size={14} />}
-                  Subscribe to Cricket Tips
-                </button>
-              </div>
-            )}
           </SectionCard>
 
           {/* ── Account & Security ────────────────────────────────────── */}

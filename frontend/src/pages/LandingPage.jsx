@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, useInView, animate } from 'framer-motion';
 import {
   Zap, ArrowRight, Upload, BrainCircuit, FileText,
@@ -75,6 +75,18 @@ const PROBLEMS = [
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 const LandingPage = ({ onOpenAuth }) => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const hash = location.state?.scrollTo;
+    if (!hash) return;
+    // Small delay lets the page render before scrolling
+    const t = setTimeout(() => {
+      document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [location.state]);
+
   return (
     <div className="min-h-screen bg-jet-black text-white">
       <Navbar onOpenAuth={onOpenAuth} />

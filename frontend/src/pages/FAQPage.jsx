@@ -14,7 +14,7 @@ const FAQS = [
   {
     category: 'Getting Started',
     q: 'Do I need to create an account?',
-    a: 'No — you can analyse videos as a guest. Creating a free account lets you save your history permanently across all your devices (guests only save history on their current browser). An account also unlocks email tips and a full dashboard.',
+    a: 'No — you can analyse videos as a guest. Creating a free account lets you save your history permanently across all your devices (guests only save history on their current browser). An account also unlocks the full dashboard and history.',
   },
   {
     category: 'Getting Started',
@@ -129,17 +129,6 @@ const FAQS = [
     a: 'BESSA uses the Groq AI API (llama-3.1-8b-instant model) with a strict cricket-only system prompt. It cannot answer questions unrelated to cricket or BattingEdge. All conversations are session-based and not stored on our server.',
   },
 
-  // Email & Subscription
-  {
-    category: 'Email & Subscription',
-    q: 'How do I subscribe to cricket tips emails?',
-    a: 'Go to Settings → Cricket Tips Email Subscription. Enter your email and name and click Subscribe. You\'ll receive AI-generated batting tips, drills, and cricket facts.',
-  },
-  {
-    category: 'Email & Subscription',
-    q: 'How do I cancel email subscriptions?',
-    a: 'Go to Settings → Cricket Tips Email Subscription and click "Unsubscribe". You can re-subscribe at any time.',
-  },
 ];
 
 const CATEGORIES = [...new Set(FAQS.map(f => f.category))];
@@ -196,7 +185,7 @@ const FAQPage = ({ onOpenAuth }) => {
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-3xl mx-auto px-4 pt-28">
+      <main className="max-w-3xl mx-auto px-4 pt-24 sm:pt-28">
 
         {/* Back */}
         <button
@@ -212,7 +201,7 @@ const FAQPage = ({ onOpenAuth }) => {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neon-blue/20 bg-neon-blue/5 text-neon-blue text-xs font-semibold uppercase tracking-widest mb-4">
             <HelpCircle size={12} /> FAQ
           </div>
-          <h1 className="text-4xl font-display font-extrabold mb-3" style={{ color: 'var(--text)' }}>
+          <h1 className="text-2xl sm:text-4xl font-display font-extrabold mb-3" style={{ color: 'var(--text)' }}>
             Frequently Asked Questions
           </h1>
           <p className="text-sm max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -243,7 +232,7 @@ const FAQPage = ({ onOpenAuth }) => {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`min-h-[36px] px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 activeCategory === cat
                   ? 'bg-neon-blue text-black'
                   : 'border border-border-dim hover:border-neon-blue/40'

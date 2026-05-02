@@ -23,14 +23,14 @@ try:
     import report as rpt
     import auth_models
     from auth_router  import router as auth_router
-    from groq_router  import router as groq_router, generate_and_send_weekly_tips
+    from groq_router  import router as groq_router
 except ImportError:
     from backend.inference_v9_5 import StackingEnsembleClassifier
     import backend.database as db
     import backend.report as rpt
     import backend.auth_models as auth_models
     from backend.auth_router  import router as auth_router
-    from backend.groq_router  import router as groq_router, generate_and_send_weekly_tips
+    from backend.groq_router  import router as groq_router
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -146,25 +146,6 @@ async def startup_event():
     db.init_history_table()
     logger.info("User history table initialized")
 
-    # Weekly email scheduler (runs every Sunday at 08:00 UTC)
-    try:
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(
-            generate_and_send_weekly_tips,
-            trigger="cron",
-            day_of_week="sun",
-            hour=8,
-            minute=0,
-            id="weekly_tips",
-        )
-        scheduler.start()
-        logger.info("Weekly email scheduler started (Sundays 08:00 UTC)")
-    except ImportError:
-        logger.warning("APScheduler not installed — weekly tips scheduler disabled. Run: pip install apscheduler")
-    except Exception as e:
-        logger.warning(f"Scheduler start failed (non-critical): {e}")
-    
     try:
         classifier = StackingEnsembleClassifier()
         mode = "Stacking Ensemble (BiLSTM+XGBoost+RF)" if classifier.is_ensemble else "BiLSTM Fallback"

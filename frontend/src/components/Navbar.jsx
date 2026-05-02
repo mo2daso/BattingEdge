@@ -59,7 +59,8 @@ const Navbar = ({ onOpenAuth }) => {
     setMobileOpen(false);
     if (href.startsWith('/')) { navigate(href); return; }
     if (location.pathname !== '/') {
-      navigate('/' + href);
+      // Pass the target hash via state so LandingPage can scroll after mount
+      navigate('/', { state: { scrollTo: href } });
     } else {
       document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
