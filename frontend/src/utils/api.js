@@ -30,7 +30,8 @@ export const authGoogle       = (token)   => api.post('/auth/google', { google_t
 export const getMe            = ()        => api.get('/auth/me').then(r => r.data);
 export const authForgotPw     = (email)   => api.post('/auth/forgot-password', { email }).then(r => r.data);
 export const authResetPw      = (tok, pw) => api.post('/auth/reset-password', { token: tok, new_password: pw }).then(r => r.data);
-export const authUpdatePw     = (cur, nw) => api.put('/auth/update-password', { current_password: cur, new_password: nw }).then(r => r.data);
+export const authUpdatePw     = (cur, nw)        => api.put('/auth/update-password', { current_password: cur, new_password: nw }).then(r => r.data);
+export const authUpdateEmail  = (newEmail, pw)   => api.put('/auth/update-email',    { new_email: newEmail, password: pw }).then(r => r.data);
 export const authResendVerify = (email)   => api.post('/auth/resend-verification', { email }).then(r => r.data);
 
 // ── Video ─────────────────────────────────────────────────────────────────────

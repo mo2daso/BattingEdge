@@ -3,7 +3,10 @@ import { motion } from 'framer-motion';
 import { Video, Square, CheckCircle2, AlertCircle, Loader2, Upload, FlipHorizontal, Info, X } from 'lucide-react';
 
 const fmtTime = (s) => `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
-const API = (path) => path; // relative URLs → Vite proxy → backend
+// In production (Vercel), VITE_API_URL must point to the Oracle Cloud backend (e.g. https://1.2.3.4:8000).
+// In dev, leave it unset — Vite proxy forwards /api and /auth to localhost:8000.
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const API = (path) => `${API_BASE}${path}`;
 
 const MEDIAPIPE_DRAWING = 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js';
 const MEDIAPIPE_POSE    = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
@@ -56,18 +59,23 @@ const MobilePage = () => {
   const initCamera = useCallback(async (facing = facingMode) => {
     setStage('loading');
     setErrMsg('');
-    // Stop existing stream
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    // Stop existing stream and give hardware a moment to release (needed on iOS)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      await new Promise(r => setTimeout(r, 200));
+    }
     cancelAnimationFrame(rafRef.current);
     try { poseRef.current?.close(); } catch { /* ignore */ }
     poseRef.current = null; setPoseOk(false);
 
-    // Try constraints from strictest → most permissive (handles front cameras on all devices)
+    // Try constraints from preferred → most permissive
+    // NOTE: { exact: facingMode } intentionally removed — it causes OverconstrainedError
+    // on many Android Chrome / iOS Safari versions, breaking the front camera fallback chain.
     const constraintOptions = [
-      { video: { facingMode: { exact: facing }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
       { video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
       { video: { facingMode: facing }, audio: false },
-      { video: true, audio: false }, // last resort: any camera
+      { video: true, audio: false }, // last resort: any camera (avoids hard failure on devices with single camera)
     ];
 
     let stream = null;
@@ -316,10 +324,10 @@ const MobilePage = () => {
         <div className="relative border-b border-amber-500/15 bg-amber-500/5">
           <button
             onClick={() => setBannerDismissed(true)}
-            className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:text-white transition-colors"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
+            className="absolute top-1 right-1 p-3 rounded-full text-gray-400 active:text-white transition-colors"
+            style={{ background: 'transparent', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <X size={12} />
+            <X size={14} />
           </button>
           <div className="flex items-start gap-2 px-4 pt-2.5 pb-1.5 pr-8">
             <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />

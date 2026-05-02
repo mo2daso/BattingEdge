@@ -50,8 +50,12 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
     setStage('loading');
     setErrMsg('');
 
-    // Stop any existing stream
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    // Stop any existing stream and give hardware a moment to release (needed on iOS)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      await new Promise(r => setTimeout(r, 200));
+    }
 
     const constraints = [
       { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: facing }, audio: false },
