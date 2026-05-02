@@ -31,11 +31,11 @@ const SectionCard = ({ icon: Icon, title, children, delay = 0 }) => (
     className="rounded-2xl border border-border-dim overflow-hidden"
     style={{ background: 'var(--surface-2)' }}
   >
-    <div className="flex items-center gap-3 px-6 py-4 border-b border-border-dim">
+    <div className="flex items-center gap-3 px-5 py-4 border-b border-border-dim">
       <Icon size={17} className="text-neon-blue" />
       <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text)' }}>{title}</h2>
     </div>
-    <div className="p-6">{children}</div>
+    <div className="p-4 sm:p-6">{children}</div>
   </motion.div>
 );
 
@@ -175,7 +175,7 @@ const SettingsPage = ({ onOpenAuth }) => {
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-3xl mx-auto px-4 pt-28">
+      <main className="max-w-3xl mx-auto px-4 pt-24 sm:pt-28">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

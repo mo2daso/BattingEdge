@@ -297,20 +297,20 @@ const DashboardPage = ({ onOpenAuth }) => {
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-5xl mx-auto px-4 pt-28">
+      <main className="max-w-5xl mx-auto px-4 pt-24 sm:pt-28">
 
         {/* Header with avatar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center gap-4 mb-3">
+          <div className="flex items-center gap-3 sm:gap-4 mb-3">
             {user && <UserAvatar size={14} />}
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-8 h-8 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center">
                   <LayoutDashboard size={15} className="text-neon-blue" />
                 </div>
                 <span className="text-xs font-semibold tracking-widest uppercase text-neon-blue">My Dashboard</span>
               </div>
-              <h1 className="text-3xl font-display font-extrabold" style={{ color: 'var(--text)' }}>
+              <h1 className="text-2xl sm:text-3xl font-display font-extrabold truncate" style={{ color: 'var(--text)' }}>
                 {user ? `Welcome back, ${user.full_name?.split(' ')[0]}` : 'Your Analysis Hub'}
               </h1>
               {user && <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{user.email}</p>}
@@ -369,13 +369,13 @@ const DashboardPage = ({ onOpenAuth }) => {
         </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 rounded-xl border border-border-dim w-fit"
+        <div className="flex gap-1 mb-6 p-1 rounded-xl border border-border-dim w-full sm:w-fit"
              style={{ background: 'var(--surface-2)' }}>
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] ${
                 activeTab === key
                   ? 'bg-neon-blue text-black shadow-sm'
                   : 'hover:bg-white/5'
@@ -406,7 +406,8 @@ const DashboardPage = ({ onOpenAuth }) => {
               ) : (
                 <div className="rounded-2xl border border-border-dim overflow-hidden"
                      style={{ background: 'var(--surface-2)' }}>
-                  <div className="grid grid-cols-5 px-6 py-4 border-b border-border-dim text-xs font-bold uppercase tracking-wider"
+                  {/* Desktop header — hidden on mobile */}
+                  <div className="hidden sm:grid grid-cols-5 px-6 py-4 border-b border-border-dim text-xs font-bold uppercase tracking-wider"
                        style={{ background: 'var(--surface-3)', color: 'var(--text-dim)' }}>
                     <span className="col-span-2">Shot</span>
                     <span>Score</span>
@@ -420,31 +421,57 @@ const DashboardPage = ({ onOpenAuth }) => {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.04 }}
-                      className="grid grid-cols-5 px-6 py-4 items-center border-b border-border-dim last:border-0 hover:bg-white/2 transition-colors"
                     >
-                      <div className="col-span-2 flex items-center gap-3">
-                        <span className="text-2xl">{shotIcon(h.shotType)}</span>
-                        <div>
-                          <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{h.shotType || 'Unknown'}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{fmtDate(h.date)}</p>
+                      {/* Mobile card */}
+                      <div className="sm:hidden flex items-center gap-3 px-4 py-3.5 border-b border-border-dim last:border-0">
+                        <span className="text-xl flex-shrink-0">{shotIcon(h.shotType)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate" style={{ color: 'var(--text)' }}>{h.shotType || 'Unknown'}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                            {fmtDate(h.date)} · {h.score ?? '—'}/100
+                          </p>
+                        </div>
+                        <span className={`inline-flex flex-shrink-0 px-2 py-0.5 rounded-lg border text-xs font-bold ${gradeColor(h.grade)}`}>
+                          {h.grade || '—'}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Link to={`/result/${h.videoId}`}
+                            className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-border-dim text-xs transition-all hover:border-border-soft min-h-[36px]"
+                            style={{ color: 'var(--text-muted)' }}>
+                            <ExternalLink size={10} /> View
+                          </Link>
+                          <a href={getPdfUrl(h.videoId)} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 px-2.5 py-2 rounded-lg bg-neon-blue/10 hover:bg-neon-blue/20 border border-neon-blue/20 text-xs text-neon-blue transition-all min-h-[36px]">
+                            <FileText size={10} /> PDF
+                          </a>
                         </div>
                       </div>
-                      <span className="font-display font-bold text-lg" style={{ color: 'var(--text)' }}>
-                        {h.score ?? '—'}<span className="text-sm font-normal" style={{ color: 'var(--text-dim)' }}>/100</span>
-                      </span>
-                      <span className={`inline-flex w-fit px-2.5 py-1 rounded-lg border text-xs font-bold ${gradeColor(h.grade)}`}>
-                        {h.grade || '—'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Link to={`/result/${h.videoId}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-dim text-xs transition-all hover:border-border-soft"
-                          style={{ color: 'var(--text-muted)' }}>
-                          <ExternalLink size={11} /> View
-                        </Link>
-                        <a href={getPdfUrl(h.videoId)} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-blue/10 hover:bg-neon-blue/20 border border-neon-blue/20 text-xs text-neon-blue transition-all">
-                          <FileText size={11} /> PDF
-                        </a>
+                      {/* Desktop row */}
+                      <div className="hidden sm:grid grid-cols-5 px-6 py-4 items-center border-b border-border-dim last:border-0 hover:bg-white/2 transition-colors">
+                        <div className="col-span-2 flex items-center gap-3">
+                          <span className="text-2xl">{shotIcon(h.shotType)}</span>
+                          <div>
+                            <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{h.shotType || 'Unknown'}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{fmtDate(h.date)}</p>
+                          </div>
+                        </div>
+                        <span className="font-display font-bold text-lg" style={{ color: 'var(--text)' }}>
+                          {h.score ?? '—'}<span className="text-sm font-normal" style={{ color: 'var(--text-dim)' }}>/100</span>
+                        </span>
+                        <span className={`inline-flex w-fit px-2.5 py-1 rounded-lg border text-xs font-bold ${gradeColor(h.grade)}`}>
+                          {h.grade || '—'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Link to={`/result/${h.videoId}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-dim text-xs transition-all hover:border-border-soft"
+                            style={{ color: 'var(--text-muted)' }}>
+                            <ExternalLink size={11} /> View
+                          </Link>
+                          <a href={getPdfUrl(h.videoId)} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-blue/10 hover:bg-neon-blue/20 border border-neon-blue/20 text-xs text-neon-blue transition-all">
+                            <FileText size={11} /> PDF
+                          </a>
+                        </div>
                       </div>
                     </motion.div>
                   ))}

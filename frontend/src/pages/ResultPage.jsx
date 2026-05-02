@@ -342,7 +342,7 @@ const ResultPage = ({ onOpenAuth }) => {
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-7xl mx-auto px-4 pt-28">
+      <main className="max-w-7xl mx-auto px-4 pt-24 sm:pt-28">
 
 
         {/* Top bar */}
@@ -378,11 +378,11 @@ const ResultPage = ({ onOpenAuth }) => {
             )}
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
             {/* Animated Score */}
             <div className="text-center">
               <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Score</p>
-              <p className="text-5xl font-display font-black" style={{ color: 'var(--text)' }}>
+              <p className="text-4xl sm:text-5xl font-display font-black" style={{ color: 'var(--text)' }}>
                 <AnimatedScore target={score} />
               </p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>/100</p>
@@ -395,7 +395,7 @@ const ResultPage = ({ onOpenAuth }) => {
                 {gradeVisible && (
                   <motion.div
                     key="grade"
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center border-2 text-2xl font-display font-black grade-reveal"
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border-2 text-xl sm:text-2xl font-display font-black grade-reveal"
                     style={{ color: gc.text, background: gc.bg, borderColor: gc.border }}
                   >
                     {grade}

@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, Square, Video, AlertCircle, Loader2, CheckCircle2, FlipHorizontal } from 'lucide-react';
+import { X, Camera, Square, Video, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 
 const MEDIAPIPE_DRAWING = 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js';
 const MEDIAPIPE_POSE    = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+
+const isMobile = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || window.innerWidth < 768);
 
 const loadScript = (src) => new Promise((resolve) => {
   if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -25,47 +27,51 @@ const CONNECTIONS = [
 ];
 
 const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
-  const videoRef     = useRef(null);
-  const canvasRef    = useRef(null);
-  const streamRef    = useRef(null);
-  const recorderRef  = useRef(null);
-  const chunksRef    = useRef([]);
-  const poseRef      = useRef(null);
-  const rafRef       = useRef(null);
+  const videoRef      = useRef(null);
+  const canvasRef     = useRef(null);
+  const streamRef     = useRef(null);
+  const recorderRef   = useRef(null);
+  const chunksRef     = useRef([]);
+  const poseRef       = useRef(null);
+  const rafRef        = useRef(null);
+  const lastDetectRef = useRef(0);
 
-  const [stage,       setStage]       = useState('init');
-  const [timer,       setTimer]       = useState(0);
-  const [poseOk,      setPoseOk]      = useState(false);
-  const [poseLoading, setPoseLoading] = useState(false);
+  const [stage,        setStage]        = useState('init');
+  const [timer,        setTimer]        = useState(0);
+  const [poseOk,       setPoseOk]       = useState(false);
+  const [poseLoading,  setPoseLoading]  = useState(false);
   const [recordedBlob, setRecordedBlob] = useState(null);
-  const [errMsg,      setErrMsg]      = useState('');
-  const [validation,  setValidation]  = useState(null);
-  const [facingMode,  setFacingMode]  = useState('environment'); // 'environment'=back, 'user'=front
-  const [canSwitchCamera, setCanSwitchCamera] = useState(false);
+  const [errMsg,       setErrMsg]       = useState('');
+  const [validation,   setValidation]   = useState(null);
+  const [facingMode,   setFacingMode]   = useState('user');
   const detectedFrames = useRef(0);
   const totalFrames    = useRef(0);
 
   // ── Camera init ───────────────────────────────────────────────────────────
-  const initCamera = useCallback(async (facing = facingMode) => {
+  const initCamera = useCallback(async (facing) => {
+    setFacingMode(facing);
     setStage('loading');
     setErrMsg('');
 
-    // Stop any existing stream and give hardware a moment to release (needed on iOS)
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
       await new Promise(r => setTimeout(r, 200));
     }
 
-    const constraints = [
+    // Mobile: cap resolution to reduce lag; Desktop: request ideal 720p
+    const constraints = isMobile ? [
+      { video: { width: { max: 1280 }, height: { max: 720 }, facingMode: facing }, audio: false },
+      { video: { facingMode: facing }, audio: false },
+      { video: true, audio: false },
+    ] : [
       { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: facing }, audio: false },
       { video: { facingMode: facing }, audio: false },
-      { video: true, audio: false }, // last resort — no facingMode constraint
+      { video: true, audio: false },
     ];
 
     let stream = null;
     let lastErr = null;
-
     for (const c of constraints) {
       try {
         stream = await navigator.mediaDevices.getUserMedia(c);
@@ -76,12 +82,9 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
     }
 
     if (!stream) {
-      const isPermissionErr = lastErr?.name === 'NotAllowedError';
-      const isFrontErr      = facing === 'user';
-
-      if (isPermissionErr) {
+      if (lastErr?.name === 'NotAllowedError') {
         setErrMsg('Camera permission denied. Please allow camera access in your browser settings.');
-      } else if (isFrontErr) {
+      } else if (facing === 'user') {
         setErrMsg('Front camera is not available on this device.');
       } else {
         setErrMsg('Could not access camera. Please check your device.');
@@ -96,37 +99,27 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
       await videoRef.current.play();
     }
     setStage('ready');
-
-    // Check if device has multiple cameras
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoCams = devices.filter(d => d.kind === 'videoinput');
-      setCanSwitchCamera(videoCams.length > 1);
-    } catch { /* ignore */ }
-
     setPoseLoading(true);
     loadPose();
-  }, [facingMode]);
+  }, []);
 
   useEffect(() => {
-    if (isOpen) initCamera('environment');
+    if (isOpen) {
+      if (isMobile) {
+        // Mobile: let user choose front or back camera first
+        setStage('choose');
+        setErrMsg('');
+        setRecordedBlob(null);
+        setValidation(null);
+        setPoseOk(false);
+        setPoseLoading(false);
+      } else {
+        // Desktop: always start with front (webcam) camera
+        initCamera('user');
+      }
+    }
     return () => cleanup();
   }, [isOpen]);
-
-  // ── Camera flip ───────────────────────────────────────────────────────────
-  const flipCamera = async () => {
-    const next = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(next);
-
-    // Stop pose detection temporarily
-    cancelAnimationFrame(rafRef.current);
-    try { poseRef.current?.close(); } catch { /* ignore */ }
-    poseRef.current = null;
-    setPoseOk(false);
-    setPoseLoading(false);
-
-    await initCamera(next);
-  };
 
   // ── MediaPipe Pose ────────────────────────────────────────────────────────
   const loadPose = async () => {
@@ -155,6 +148,15 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
       if (!poseRef.current || !videoRef.current || videoRef.current.readyState < 2) {
         rafRef.current = requestAnimationFrame(detect);
         return;
+      }
+      // On mobile: throttle to one frame every 2 seconds to reduce lag
+      if (isMobile) {
+        const now = Date.now();
+        if (now - lastDetectRef.current < 2000) {
+          rafRef.current = requestAnimationFrame(detect);
+          return;
+        }
+        lastDetectRef.current = now;
       }
       try { await poseRef.current.send({ image: videoRef.current }); } catch { /* ignore */ }
       rafRef.current = requestAnimationFrame(detect);
@@ -261,7 +263,18 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
     onClose();
   };
 
-  const retake = () => { setRecordedBlob(null); setValidation(null); setStage('ready'); };
+  const retake = () => {
+    setRecordedBlob(null);
+    setValidation(null);
+    if (isMobile) {
+      cleanup();
+      setStage('choose');
+      setPoseOk(false);
+      setPoseLoading(false);
+    } else {
+      setStage('ready');
+    }
+  };
 
   const cleanup = () => {
     cancelAnimationFrame(rafRef.current);
@@ -270,8 +283,9 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
     poseRef.current = null;
   };
 
-  // Mirror only when using front camera
-  const mirrorStyle = facingMode === 'user' ? { transform: 'scaleX(-1)' } : {};
+  // Mirror for front camera; portrait aspect ratio on mobile
+  const mirrorStyle  = facingMode === 'user' ? { transform: 'scaleX(-1)' } : {};
+  const aspectRatio  = isMobile ? '9/16' : '16/9';
 
   if (!isOpen) return null;
 
@@ -290,10 +304,12 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-          className="relative w-full max-w-3xl glass-strong rounded-2xl overflow-hidden border border-border-soft shadow-[0_32px_100px_rgba(0,0,0,0.8)]"
+          className={`relative glass-strong rounded-2xl overflow-hidden border border-border-soft shadow-[0_32px_100px_rgba(0,0,0,0.8)] ${
+            isMobile ? 'w-full max-w-sm' : 'w-full max-w-3xl'
+          }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border-dim">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center">
                 <Camera size={16} className="text-neon-blue" />
@@ -301,165 +317,178 @@ const CameraModal = ({ isOpen, onClose, onVideoReady }) => {
               <div>
                 <h3 className="font-bold text-white text-sm">Camera Analysis</h3>
                 <p className="text-xs text-gray-500">
-                  {facingMode === 'user' ? '📱 Front camera' : '📷 Back camera'} · {poseOk ? '✦ AI Pose Active' : 'Position yourself side-on'}
+                  {stage === 'choose'
+                    ? 'Choose your camera'
+                    : facingMode === 'user' ? '📱 Front camera' : '📷 Back camera'
+                  } · {poseOk ? '✦ AI Pose Active' : 'Position yourself side-on'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Flip camera button */}
-              {(canSwitchCamera || true) && stage !== 'recording' && stage !== 'recorded' && (
-                <button
-                  onClick={flipCamera}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 text-gray-300 hover:text-white text-xs font-medium transition-all"
-                  title={facingMode === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
-                >
-                  <FlipHorizontal size={13} />
-                  {facingMode === 'environment' ? 'Front Cam' : 'Back Cam'}
-                </button>
-              )}
-              <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all">
-                <X size={18} />
-              </button>
-            </div>
+            <button onClick={onClose} className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all">
+              <X size={18} />
+            </button>
           </div>
 
-          {/* Camera view */}
-          <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
-            {stage === 'loading' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <Loader2 size={32} className="text-neon-blue animate-spin" />
-                <p className="text-gray-400 text-sm">Starting {facingMode === 'user' ? 'front' : 'back'} camera…</p>
+          {/* ── MOBILE: CHOOSE CAMERA ── */}
+          {stage === 'choose' && (
+            <div className="p-8 flex flex-col items-center gap-5 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center">
+                <Camera size={28} className="text-neon-blue" />
               </div>
-            )}
+              <div>
+                <h3 className="font-bold text-white text-base mb-1">Choose Camera</h3>
+                <p className="text-sm text-gray-400 max-w-xs">Stand side-on (bowler's view) with full body visible for best accuracy.</p>
+              </div>
+              <div className="flex flex-col gap-3 w-full">
+                <button
+                  onClick={() => initCamera('user')}
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all min-h-[52px]"
+                >
+                  📱 Front Camera
+                </button>
+                <button
+                  onClick={() => initCamera('environment')}
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm hover:bg-white/20 transition-all min-h-[52px]"
+                >
+                  📷 Back Camera
+                </button>
+              </div>
+            </div>
+          )}
 
-            {stage === 'error' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
-                <AlertCircle size={40} className="text-red-400" />
-                <p className="text-white font-medium">{errMsg}</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <button
-                    onClick={() => initCamera(facingMode)}
-                    className="px-4 py-2 rounded-xl bg-neon-blue text-black text-sm font-bold hover:bg-[#33deff] transition-all"
-                  >
-                    Try Again
-                  </button>
-                  {facingMode === 'user' && (
-                    <button
-                      onClick={() => { setFacingMode('environment'); initCamera('environment'); }}
-                      className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-all"
-                    >
-                      Use Back Camera
+          {/* ── CAMERA VIEW ── */}
+          {stage !== 'choose' && (
+            <>
+              <div className="relative bg-black" style={{ aspectRatio }}>
+                {stage === 'loading' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <Loader2 size={32} className="text-neon-blue animate-spin" />
+                    <p className="text-gray-400 text-sm">Starting {facingMode === 'user' ? 'front' : 'back'} camera…</p>
+                  </div>
+                )}
+
+                {stage === 'error' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
+                    <AlertCircle size={40} className="text-red-400" />
+                    <p className="text-white font-medium text-sm">{errMsg}</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      <button
+                        onClick={() => initCamera(facingMode)}
+                        className="px-4 py-2 rounded-xl bg-neon-blue text-black text-sm font-bold hover:bg-[#33deff] transition-all min-h-[44px]"
+                      >
+                        Try Again
+                      </button>
+                      {isMobile && (
+                        <button
+                          onClick={() => { cleanup(); setStage('choose'); }}
+                          className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-all min-h-[44px]"
+                        >
+                          Switch Camera
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <video
+                  ref={videoRef}
+                  muted playsInline
+                  className={`absolute inset-0 w-full h-full object-cover ${stage === 'loading' || stage === 'error' ? 'opacity-0' : ''}`}
+                  style={mirrorStyle}
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  style={mirrorStyle}
+                />
+
+                {stage === 'recording' && (
+                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500/90 backdrop-blur px-3 py-1.5 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    <span className="text-white text-xs font-bold">REC {fmtTime(timer)}</span>
+                  </div>
+                )}
+
+                {stage === 'recorded' && (
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 px-6 text-center">
+                    {validation?.ok === false ? (
+                      <>
+                        <div className="w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500/40 flex items-center justify-center">
+                          <AlertCircle size={28} className="text-red-400" />
+                        </div>
+                        <p className="text-white font-bold text-base">Poor Video Quality</p>
+                        <p className="text-gray-300 text-sm max-w-xs">{validation.msg}</p>
+                        <p className="text-gray-500 text-xs">You can still analyze, or retake for better results.</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-14 h-14 rounded-full bg-neon-green/10 border-2 border-neon-green/40 flex items-center justify-center">
+                          <CheckCircle2 size={28} className="text-neon-green" />
+                        </div>
+                        <p className="text-white font-bold text-base">Recording Complete</p>
+                        {validation?.msg
+                          ? <p className="text-neon-green text-xs max-w-xs">{validation.msg}</p>
+                          : <p className="text-gray-400 text-sm">{fmtTime(timer)} captured</p>
+                        }
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {(stage === 'ready' || stage === 'recording') && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-[45%] h-[80%] border-2 border-dashed border-white/10 rounded-2xl" />
+                  </div>
+                )}
+
+                {poseLoading && !poseOk && stage !== 'error' && (
+                  <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black/60 border border-white/10 backdrop-blur px-2.5 py-1 rounded-full">
+                    <Loader2 size={10} className="text-gray-400 animate-spin" />
+                    <span className="text-gray-400 text-[10px] font-semibold">Loading AI Pose…</span>
+                  </div>
+                )}
+
+                {poseOk && stage !== 'recorded' && stage !== 'error' && (
+                  <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-neon-blue/10 border border-neon-blue/20 backdrop-blur px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-neon-blue animate-pulse" />
+                    <span className="text-neon-blue text-[10px] font-semibold">POSE AI ON</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div className="text-xs text-gray-500 flex-1 min-w-0">
+                  {stage === 'ready'     && 'Stand side-on, full body in frame. Max 60 seconds.'}
+                  {stage === 'recording' && `Recording… auto-stops at 1:00. ${60 - timer}s remaining.`}
+                  {stage === 'recorded'  && 'Ready to analyze. Or retake if needed.'}
+                </div>
+
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  {stage === 'recorded' && (
+                    <button onClick={retake} className="px-3 sm:px-4 py-2 rounded-xl bg-surface-2 border border-border-soft text-xs sm:text-sm font-medium text-gray-300 hover:text-white hover:border-white/20 transition-all min-h-[44px]">
+                      Retake
                     </button>
                   )}
-                  {facingMode === 'environment' && (
-                    <button
-                      onClick={() => { setFacingMode('user'); initCamera('user'); }}
-                      className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium hover:bg-white/20 transition-all"
-                    >
-                      Use Front Camera
+                  {stage === 'ready' && (
+                    <button onClick={startRecording} className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-red-500 hover:bg-red-400 text-white font-bold text-sm transition-all shadow-[0_0_20px_rgba(239,68,68,0.35)] min-h-[44px]">
+                      <Video size={15} /> Start Recording
+                    </button>
+                  )}
+                  {stage === 'recording' && (
+                    <button onClick={stopRecording} className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-surface-2 border border-white/20 hover:border-white/40 text-white font-bold text-sm transition-all min-h-[44px]">
+                      <Square size={14} fill="white" /> Stop
+                    </button>
+                  )}
+                  {stage === 'recorded' && (
+                    <button onClick={handleAnalyze} className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all shadow-neon min-h-[44px]">
+                      Analyze
                     </button>
                   )}
                 </div>
               </div>
-            )}
-
-            <video
-              ref={videoRef}
-              muted playsInline
-              className={`absolute inset-0 w-full h-full object-cover ${stage === 'loading' || stage === 'error' ? 'opacity-0' : ''}`}
-              style={mirrorStyle}
-            />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              style={mirrorStyle}
-            />
-
-            {stage === 'recording' && (
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500/90 backdrop-blur px-3 py-1.5 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                <span className="text-white text-xs font-bold">REC {fmtTime(timer)}</span>
-              </div>
-            )}
-
-            {stage === 'recorded' && (
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 px-6 text-center">
-                {validation?.ok === false ? (
-                  <>
-                    <div className="w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500/40 flex items-center justify-center">
-                      <AlertCircle size={28} className="text-red-400" />
-                    </div>
-                    <p className="text-white font-bold text-base">Poor Video Quality</p>
-                    <p className="text-gray-300 text-sm max-w-xs">{validation.msg}</p>
-                    <p className="text-gray-500 text-xs">You can still analyze, or retake for better results.</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-14 h-14 rounded-full bg-neon-green/10 border-2 border-neon-green/40 flex items-center justify-center">
-                      <CheckCircle2 size={28} className="text-neon-green" />
-                    </div>
-                    <p className="text-white font-bold text-base">Recording Complete</p>
-                    {validation?.msg
-                      ? <p className="text-neon-green text-xs max-w-xs">{validation.msg}</p>
-                      : <p className="text-gray-400 text-sm">{fmtTime(timer)} captured</p>
-                    }
-                  </>
-                )}
-              </div>
-            )}
-
-            {(stage === 'ready' || stage === 'recording') && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-[45%] h-[80%] border-2 border-dashed border-white/10 rounded-2xl" />
-              </div>
-            )}
-
-            {poseLoading && !poseOk && stage !== 'error' && (
-              <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black/60 border border-white/10 backdrop-blur px-2.5 py-1 rounded-full">
-                <Loader2 size={10} className="text-gray-400 animate-spin" />
-                <span className="text-gray-400 text-[10px] font-semibold">Loading AI Pose…</span>
-              </div>
-            )}
-
-            {poseOk && stage !== 'recorded' && stage !== 'error' && (
-              <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-neon-blue/10 border border-neon-blue/20 backdrop-blur px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-neon-blue animate-pulse" />
-                <span className="text-neon-blue text-[10px] font-semibold">POSE AI ON</span>
-              </div>
-            )}
-          </div>
-
-          {/* Controls */}
-          <div className="px-6 py-5 flex items-center justify-between gap-4">
-            <div className="text-xs text-gray-500">
-              {stage === 'ready'     && 'Stand side-on, full body in frame. Max 60 seconds.'}
-              {stage === 'recording' && `Recording… auto-stops at 1:00. ${60 - timer}s remaining.`}
-              {stage === 'recorded'  && 'Ready to analyze. Or retake if needed.'}
-            </div>
-
-            <div className="flex items-center gap-3 flex-shrink-0">
-              {stage === 'recorded' && (
-                <button onClick={retake} className="px-4 py-2 rounded-xl bg-surface-2 border border-border-soft text-sm font-medium text-gray-300 hover:text-white hover:border-white/20 transition-all">
-                  Retake
-                </button>
-              )}
-              {stage === 'ready' && (
-                <button onClick={startRecording} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500 hover:bg-red-400 text-white font-bold text-sm transition-all shadow-[0_0_20px_rgba(239,68,68,0.35)]">
-                  <Video size={15} /> Start Recording
-                </button>
-              )}
-              {stage === 'recording' && (
-                <button onClick={stopRecording} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-2 border border-white/20 hover:border-white/40 text-white font-bold text-sm transition-all">
-                  <Square size={14} fill="white" /> Stop
-                </button>
-              )}
-              {stage === 'recorded' && (
-                <button onClick={handleAnalyze} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all shadow-neon">
-                  Analyze Recording
-                </button>
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

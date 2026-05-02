@@ -210,25 +210,25 @@ const ShotCard = ({ shot }) => {
       style={{ background: 'var(--surface-2)', borderColor: shot.border }}
     >
       {/* Shot header */}
-      <div className="p-6" style={{ background: shot.bg }}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="text-5xl">{shot.emoji}</span>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
+      <div className="p-4 sm:p-6" style={{ background: shot.bg }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl sm:text-5xl flex-shrink-0">{shot.emoji}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <DifficultyBadge level={shot.difficulty} />
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
                       style={{ color: 'var(--text-dim)', borderColor: 'var(--border)', background: 'var(--surface-3)' }}>
                   {shot.style}
                 </span>
               </div>
-              <h2 className="text-2xl font-display font-extrabold" style={{ color: 'var(--text)' }}>{shot.name}</h2>
+              <h2 className="text-xl sm:text-2xl font-display font-extrabold" style={{ color: 'var(--text)' }}>{shot.name}</h2>
               <p className="text-sm mt-0.5" style={{ color: shot.color }}>{shot.tagline}</p>
             </div>
           </div>
           <Link
             to="/analyze"
-            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-black text-xs font-bold hover:opacity-90 transition-opacity"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-black text-xs font-bold hover:opacity-90 transition-opacity min-h-[36px]"
             style={{ background: shot.color }}
           >
             <Zap size={12} /> Analyze
@@ -239,7 +239,7 @@ const ShotCard = ({ shot }) => {
       </div>
 
       {/* Key technique points */}
-      <div className="px-6 py-4 border-b border-border-dim">
+      <div className="px-4 sm:px-6 py-4 border-b border-border-dim">
         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)' }}>Key Technique Points</h3>
         <div className="space-y-2">
           {shot.keyPoints.map((pt, i) => (
@@ -255,7 +255,7 @@ const ShotCard = ({ shot }) => {
       </div>
 
       {/* Legend + fun fact (always visible) */}
-      <div className="px-6 py-4 grid sm:grid-cols-2 gap-4 border-b border-border-dim">
+      <div className="px-4 sm:px-6 py-4 grid sm:grid-cols-2 gap-4 border-b border-border-dim">
         <div className="p-4 rounded-xl" style={{ background: 'var(--surface-3)', border: `1px solid ${shot.border}` }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={13} style={{ color: shot.color }} />
@@ -275,7 +275,7 @@ const ShotCard = ({ shot }) => {
       {/* Expand/collapse for drills + mistakes */}
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-6 py-3.5 text-sm font-medium transition-colors hover:bg-white/3"
+        className="w-full flex items-center justify-between px-4 sm:px-6 py-3.5 text-sm font-medium transition-colors hover:bg-white/3 min-h-[48px]"
         style={{ color: 'var(--text-muted)' }}
       >
         <span>{expanded ? 'Hide' : 'Show'} Drills, Mistakes & MCC Standards</span>
@@ -288,7 +288,7 @@ const ShotCard = ({ shot }) => {
             initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 space-y-5">
+            <div className="px-4 sm:px-6 pb-6 space-y-5">
 
               {/* Common Mistakes */}
               <div>
@@ -367,7 +367,7 @@ const ShotLibraryPage = ({ onOpenAuth }) => {
   <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
     <Navbar onOpenAuth={onOpenAuth} />
 
-    <main className="max-w-4xl mx-auto px-4 pt-28">
+    <main className="max-w-4xl mx-auto px-4 pt-24 sm:pt-28">
 
       {/* Back button */}
       <button
@@ -382,7 +382,7 @@ const ShotLibraryPage = ({ onOpenAuth }) => {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neon-blue/20 bg-neon-blue/5 text-neon-blue text-xs font-semibold uppercase tracking-widest mb-4">
           <Target size={12} /> Shot Library
         </div>
-        <h1 className="text-4xl font-display font-extrabold mb-3" style={{ color: 'var(--text)' }}>
+        <h1 className="text-3xl sm:text-4xl font-display font-extrabold mb-3" style={{ color: 'var(--text)' }}>
           Master the 5 Core Shots
         </h1>
         <p className="text-sm max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--text-muted)' }}>

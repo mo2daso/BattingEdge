@@ -213,7 +213,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
           {/* Header accent */}
           <div className="h-1 w-full bg-gradient-to-r from-neon-blue via-neon-green to-neon-blue bg-[length:200%] animate-gradient" />
 
-          <div className="p-8">
+          <div className="p-6 sm:p-8">
             {/* Close */}
             <button onClick={onClose} className="absolute top-5 right-5 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all">
               <X size={18} />

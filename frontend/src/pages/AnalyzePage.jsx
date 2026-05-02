@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Camera, FileVideo, X, AlertCircle, Info,
-  CheckCircle2, Loader2, Zap, Smartphone, RefreshCw, Scissors
+  CheckCircle2, Loader2, Zap, Scissors
 } from 'lucide-react';
-import QRCode from 'react-qr-code';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import CameraModal from '../components/CameraModal';
@@ -96,10 +95,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [analysisStatus,   setAnalysisStatus]   = useState('');
   const [errMsg,       setErrMsg]       = useState('');
   const [camOpen,      setCamOpen]      = useState(false);
-  const [serverInfo,   setServerInfo]   = useState(null);
-  const [qrLoading,    setQrLoading]    = useState(false);
-  const [qrWaiting,    setQrWaiting]    = useState(false);
-  const qrPollRef     = useRef(null);
 
   // ── Video trim state ──────────────────────────────────────────────────────────
   const [videoDuration, setVideoDuration] = useState(0);
@@ -108,55 +103,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [videoUrl,      setVideoUrl]      = useState(null);
   const [isTrimming,    setIsTrimming]    = useState(false);
   const trimVideoRef = useRef(null);
-
-  // Fetch server LAN info when phone tab is opened; reset when leaving tab
-  useEffect(() => {
-    if (tab !== 'phone') {
-      clearInterval(qrPollRef.current);
-      setQrWaiting(false);
-      return;
-    }
-    if (serverInfo) return;
-    setQrLoading(true);
-    fetch('/api/server-info')
-      .then(r => r.json())
-      .then(d => { setServerInfo(d); setQrLoading(false); })
-      .catch(() => { setServerInfo({ lan_ip: window.location.hostname, api_port: 8000, frontend_port: 5173 }); setQrLoading(false); });
-  }, [tab]);
-
-  // Poll for new mobile result using baseline-ID comparison (timezone-proof).
-  // We snapshot whatever is already completed when the QR appears, then only
-  // navigate when a DIFFERENT (newer) video_id shows up.
-  useEffect(() => {
-    if (tab !== 'phone' || !serverInfo || qrLoading) return;
-
-    let active = true;
-    let baselineId = null;
-
-    const startPolling = () => {
-      clearInterval(qrPollRef.current);
-      setQrWaiting(true);
-      qrPollRef.current = setInterval(async () => {
-        try {
-          const res  = await fetch('/api/latest-result?after=1970-01-01T00:00:00');
-          const data = await res.json();
-          if (active && data.video_id && data.video_id !== baselineId) {
-            clearInterval(qrPollRef.current);
-            setQrWaiting(false);
-            navigate(`/result/${data.video_id}`);
-          }
-        } catch { /* ignore transient network errors */ }
-      }, 3000);
-    };
-
-    // Snapshot current latest so we ignore it going forward
-    fetch('/api/latest-result?after=1970-01-01T00:00:00')
-      .then(r => r.json())
-      .then(d => { baselineId = d.video_id || null; if (active) startPolling(); })
-      .catch(() => { if (active) startPolling(); });
-
-    return () => { active = false; clearInterval(qrPollRef.current); setQrWaiting(false); };
-  }, [tab, serverInfo, qrLoading]);
 
   // ── File handling ───────────────────────────────────────────────────────────
   const acceptFile = (f) => {
@@ -279,12 +225,10 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
   const reset = () => {
     clearInterval(pollRef.current);
-    clearInterval(qrPollRef.current);
     setFile(null); setStage('idle'); setUploadPct(0);
     setAnalysisProgress(0); setErrMsg('');
     if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(null); }
     setVideoDuration(0); setTrimStart(0); setTrimEnd(0);
-    setServerInfo(null);
   };
 
   const isProcessing = stage === 'uploading' || stage === 'analyzing';
@@ -385,7 +329,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
                 {[
                   { id: 'upload', label: 'Upload Video', icon: Upload },
                   { id: 'camera', label: 'Use Camera',   icon: Camera },
-                  { id: 'phone',  label: 'Use Phone',    icon: Smartphone },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -404,7 +347,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-10 rounded-3xl bg-surface-2 border border-border-dim text-center"
+                  className="p-6 sm:p-10 rounded-3xl bg-surface-2 border border-border-dim text-center"
                 >
                   <div className="w-20 h-20 rounded-2xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center mx-auto mb-6">
                     <Camera size={36} className="text-neon-blue" />
@@ -434,73 +377,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
                 </motion.div>
               )}
 
-              {/* ── PHONE / QR TAB ── */}
-              {tab === 'phone' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-8 rounded-3xl bg-surface-2 border border-border-dim text-center"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-neon-green/10 border border-neon-green/20 flex items-center justify-center mx-auto mb-5">
-                    <Smartphone size={30} className="text-neon-green" />
-                  </div>
-                  <h3 className="text-2xl font-display font-bold text-white mb-2">Record from Your Phone</h3>
-                  <p className="text-gray-400 text-sm max-w-sm mx-auto mb-6">
-                    Scan the QR code with your phone. It opens a recording page — record your shot, and the video is sent straight to the AI for analysis.
-                  </p>
-
-                  {qrLoading ? (
-                    <div className="flex flex-col items-center gap-3 py-8">
-                      <Loader2 size={28} className="text-neon-blue animate-spin" />
-                      <p className="text-gray-500 text-sm">Getting network info…</p>
-                    </div>
-                  ) : serverInfo ? (
-                    <>
-                      <div className="inline-block p-4 bg-white rounded-2xl mb-4 shadow-[0_0_40px_rgba(0,212,255,0.15)]">
-                        <QRCode
-                          value={`https://${serverInfo.lan_ip}:${serverInfo.frontend_port}/mobile`}
-                          size={180}
-                          bgColor="#ffffff"
-                          fgColor="#0a0a0f"
-                          level="M"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mb-1">Scan with your phone camera</p>
-                      <p className="text-[10px] font-mono text-gray-600 mb-4">
-                        {`https://${serverInfo.lan_ip}:${serverInfo.frontend_port}/mobile`}
-                      </p>
-
-                      {/* Waiting indicator */}
-                      {qrWaiting && (
-                        <div className="flex items-center justify-center gap-2 mb-4 py-2 px-4 rounded-full bg-neon-blue/10 border border-neon-blue/20 mx-auto w-fit">
-                          <Loader2 size={12} className="text-neon-blue animate-spin" />
-                          <span className="text-neon-blue text-xs font-semibold">Waiting for mobile analysis…</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl p-4 text-left max-w-sm mx-auto mb-3">
-                        <Info size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-amber-200/70 leading-relaxed">
-                          Phone and laptop must be on the <strong className="text-white">same WiFi</strong>. When your phone finishes analyzing, this page will automatically show the result.
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl p-4 text-left max-w-sm mx-auto">
-                        <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-red-200/70 leading-relaxed">
-                          <strong className="text-red-300">Wrong angle = Wrong prediction.</strong> Record <strong className="text-white">side-on</strong> (bowler's view), full body head to toe. Front or back-on angles give inaccurate results.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => { setServerInfo(null); }}
-                        className="mt-4 flex items-center gap-1.5 mx-auto text-xs text-gray-600 hover:text-gray-400 transition-colors"
-                      >
-                        <RefreshCw size={11} /> Refresh QR
-                      </button>
-                    </>
-                  ) : null}
-                </motion.div>
-              )}
-
               {/* ── UPLOAD TAB ── */}
               {tab === 'upload' && (
                 <motion.div
@@ -516,7 +392,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDrop}
                   >
-                    <div className="p-10 flex flex-col items-center justify-center min-h-[320px] text-center">
+                    <div className="p-5 sm:p-10 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[320px] text-center">
                       <AnimatePresence mode="wait">
                         {!file ? (
                           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">

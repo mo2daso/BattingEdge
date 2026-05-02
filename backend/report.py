@@ -405,9 +405,9 @@ def generate_pdf(result, output_path):
             # colWidths: 1.8 + 1.5 + 4.0 = 7.3 in ✓
             std_table = Table(std_data, colWidths=[1.8 * inch, 1.5 * inch, 4.0 * inch])
             std_table.setStyle(TableStyle([
-                # Header row
-                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor(JET_BLACK_HEX)),
-                ('TEXTCOLOR',     (0, 0), (-1, 0), C_WHITE),
+                # Header row — light blue background with dark text for readability
+                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#E3F2FD')),
+                ('TEXTCOLOR',     (0, 0), (-1, 0), colors.HexColor('#1A1A2E')),
                 ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('TOPPADDING',    (0, 0), (-1, 0), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -528,8 +528,8 @@ def generate_pdf(result, output_path):
             bio_table = Table(table_data,
                               colWidths=[1.3*inch, 0.8*inch, 1.1*inch, 0.9*inch, 2.9*inch])
             bio_table.setStyle(TableStyle([
-                ('BACKGROUND',    (0, 0), (-1, 0), C_JET_BLACK),
-                ('TEXTCOLOR',     (0, 0), (-1, 0), C_WHITE),
+                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#E3F2FD')),
+                ('TEXTCOLOR',     (0, 0), (-1, 0), colors.HexColor('#1A1A2E')),
                 ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
                 ('TOPPADDING',    (0, 0), (-1, 0), 8),
@@ -609,8 +609,8 @@ def generate_pdf(result, output_path):
 
             mistake_table = Table(mistake_data, colWidths=[2.2 * inch, 5.1 * inch])
             mistake_table.setStyle(TableStyle([
-                ('BACKGROUND',    (0, 0), (-1, 0), C_JET_BLACK),
-                ('TEXTCOLOR',     (0, 0), (-1, 0), C_WHITE),
+                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#E3F2FD')),
+                ('TEXTCOLOR',     (0, 0), (-1, 0), colors.HexColor('#1A1A2E')),
                 ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('TOPPADDING',    (0, 0), (-1, 0), 7),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
