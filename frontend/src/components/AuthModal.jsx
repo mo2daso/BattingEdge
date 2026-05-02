@@ -153,9 +153,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setError(''); setLoading(true);
     try {
-      await authRegister({ email, password, full_name: name });
-      // Auto-verify is on — log the user in immediately after registration
-      const data = await authLogin({ email, password });
+      const data = await authRegister({ email, password, full_name: name });
       localStorage.setItem('be_token', data.access_token);
       const user = await getMe();
       handleSuccess(data.access_token, user);

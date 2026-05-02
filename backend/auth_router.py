@@ -69,19 +69,18 @@ async def register(body: RegisterRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Auto-verify — no email gate, login works immediately
     auth_models.set_verified(user_id)
 
-    # Send welcome email (non-blocking — errors are swallowed)
-    try:
-        auth_utils.send_welcome_email(email, body.full_name.strip())
-    except Exception as e:
-        logger.warning(f"[auth/register] Welcome email failed (non-critical): {e}")
-
+    token = auth_utils.create_access_token(user_id, email)
     logger.info(f"[auth/register] New user registered: {email}")
     return {
-        "message": "Registration successful! You can now log in.",
-        "user_id": user_id,
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id":        user_id,
+            "email":     email,
+            "full_name": body.full_name.strip(),
+        },
     }
 
 

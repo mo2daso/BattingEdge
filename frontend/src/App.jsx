@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider }    from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider }   from './context/ThemeContext';
 import AuthModal           from './components/AuthModal';
 import ChatBot             from './components/ChatBot';
@@ -14,6 +14,21 @@ import ResetPasswordPage   from './pages/ResetPasswordPage';
 import MobilePage          from './pages/MobilePage';
 import SettingsPage        from './pages/SettingsPage';
 import FAQPage             from './pages/FAQPage';
+
+const ProtectedRoute = ({ children, onOpenAuth }) => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/', { replace: true });
+      onOpenAuth('login');
+    }
+  }, [loading, user]);
+
+  if (loading || !user) return null;
+  return children;
+};
 
 // Inner component so useLocation works inside Router
 const AppInner = ({ authOpen, setAuthOpen, authDefault, openAuth }) => {
@@ -49,7 +64,7 @@ const AppInner = ({ authOpen, setAuthOpen, authDefault, openAuth }) => {
 
       <Routes>
         <Route path="/"                element={<LandingPage      onOpenAuth={openAuth} />} />
-        <Route path="/analyze"         element={<AnalyzePage      onOpenAuth={openAuth} />} />
+        <Route path="/analyze"         element={<ProtectedRoute onOpenAuth={openAuth}><AnalyzePage onOpenAuth={openAuth} /></ProtectedRoute>} />
         <Route path="/result/:videoId" element={<ResultPage       onOpenAuth={openAuth} />} />
         <Route path="/dashboard"       element={<DashboardPage    onOpenAuth={openAuth} />} />
         <Route path="/settings"        element={<SettingsPage     onOpenAuth={openAuth} />} />

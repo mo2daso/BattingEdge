@@ -157,6 +157,8 @@ class StackingEnsembleClassifier:
                 self.xgb_model.load_model(self.models / "battingedge_V9_5_xgboost_best.json")
                 self.rf_model = joblib.load(self.models / "battingedge_V9_5_random_forest_best.pkl")
                 self.meta_model = joblib.load(self.models / "battingedge_V9_5_meta_model.pkl")
+                if hasattr(self.meta_model, 'multi_class'):
+                    delattr(self.meta_model, 'multi_class')
                 self.is_ensemble = True
                 logger.info("✅ Ensemble Loaded")
             except:
