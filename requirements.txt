@@ -25,6 +25,7 @@ google-auth
 
 # ─── AI Assistant (Groq) ──────────────────────────────────
 httpx
+groq
 
 # ─── Scheduler (weekly email tips) ───────────────────────
 apscheduler

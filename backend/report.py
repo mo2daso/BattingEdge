@@ -459,8 +459,8 @@ def generate_pdf(result, output_path):
             # colWidths: 3.4 + 3.4 = 6.8 in ✓
             col_table = Table(col_data, colWidths=[3.4 * inch, 3.4 * inch])
             col_table.setStyle(TableStyle([
-                ('BACKGROUND',    (0, 0), (-1, 0), C_LIGHT_BG),
-                ('TEXTCOLOR',     (0, 0), (-1, 0), C_JET_BLACK),
+                ('BACKGROUND',    (0, 0), (-1, 0), colors.HexColor('#E3F2FD')),
+                ('TEXTCOLOR',     (0, 0), (-1, 0), colors.HexColor('#1A1A2E')),
                 ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
                 ('TOPPADDING',    (0, 0), (-1, 0), 8),

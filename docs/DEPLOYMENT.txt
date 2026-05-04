@@ -1,0 +1,111 @@
+Full Deployment Guide — $0/month
+Backend Hosting Options
+Option	Cost	RAM	Always On	Complexity
+Render free	$0	512MB (tight for TF)	❌ sleeps 15min	Easy
+Railway	$5/month	8GB	✅ yes	Easy
+Cloudflare Tunnel	$0	Your laptop RAM	✅ when laptop is on	Easy
+My recommendation: Use Render free to try first. If it crashes (OOM), switch to Railway ($5/month). For your defense presentation, Cloudflare Tunnel is the safest — backend runs on your own laptop, no RAM limits.
+
+Step 1 — Push to GitHub
+Open Git Bash or the VS Code terminal in your project folder and run:
+
+
+cd "d:/Users/Anoshia/BattingEdge_FYP"
+
+git add .
+
+git status
+# Check nothing secret is staged (no .env file should appear)
+
+git commit -m "Add theme toggle, CricBot, dashboard, settings, shot library, deployment config"
+
+git push origin main
+If it asks for credentials, log in with your GitHub username and a Personal Access Token (not your password).
+
+Step 2 — Get Free Groq API Key
+Go to console.groq.com
+Sign up with Google (no credit card)
+Click API Keys → Create API Key
+Copy it — looks like gsk_xxxxxxxxxxxx
+Step 3 — Deploy Frontend to Vercel
+Go to vercel.com → sign up with GitHub
+Click Add New Project
+Import your GitHub repo
+In Configure Project:
+Framework Preset: Vite
+Root Directory: frontend
+Build Command: npm run build
+Output Directory: dist
+Environment Variables — add this:
+VITE_API_URL = (leave blank for now — fill in after Render deploy in Step 5)
+Click Deploy
+Your URL will be battingedge.vercel.app (if that name is available — you set the project name when you create it).
+
+Step 4 — Deploy Backend to Render
+Go to render.com → sign up with GitHub (no credit card for free tier)
+Click New → Web Service
+Connect your GitHub repo
+Settings:
+Name: battingedge-backend
+Root Directory: backend
+Runtime: Python
+Build Command: pip install -r ../requirements.txt
+Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT
+Plan: Free
+Environment Variables — add all of these:
+Key	Value
+SECRET_KEY	any random string (e.g. run python -c "import secrets; print(secrets.token_hex(32))")
+ALGORITHM	HS256
+GMAIL_ADDRESS	msobankms@gmail.com
+GMAIL_APP_PASSWORD	hrworjlmhgtvkppn
+GOOGLE_CLIENT_ID	704836746742-5ekd8ctbsffpa1mvio762u4srve43g3n.apps.googleusercontent.com
+GROQ_API_KEY	gsk_... (from Step 2)
+FRONTEND_URL	https://battingedge.vercel.app
+Click Create Web Service
+Your backend URL will be: https://battingedge-backend.onrender.com
+
+Step 5 — Connect Frontend to Backend
+Go back to Vercel → battingedge project → Settings → Environment Variables and add:
+
+Key	Value
+VITE_API_URL	https://battingedge-backend.onrender.com
+Then go to Deployments → Redeploy (or just push a small change to trigger it).
+
+Step 6 — Fix Google OAuth for Production
+Go to console.cloud.google.com
+APIs & Services → Credentials → your OAuth Client ID
+Authorized JavaScript origins — add:
+https://battingedge.vercel.app
+Authorized redirect URIs — add:
+https://battingedge.vercel.app
+Save
+Step 7 — Test Everything
+Open https://battingedge.vercel.app and check:
+
+ Site loads
+ Register + get verification email ✅
+ Click verification link → redirects back to site ✅
+ Login works ✅
+ Google login works ✅
+ Upload video → analyze → result page ✅
+ PDF downloads ✅
+ CricBot responds ✅
+ Dark/light toggle works ✅
+If Render Crashes (Memory Error)
+Sign up for Railway instead:
+
+railway.app → New Project → Deploy from GitHub
+Same env vars, same start command
+Free $5 credit → ~1 month free
+After that: ~$5-10/month depending on usage (ML backend with medium traffic ≈ $5-8/month)
+For Your Defense Demo (Safest Option — Free)
+Run the backend locally during your presentation + use Cloudflare Tunnel for a permanent URL:
+
+
+# Install once
+winget install --id Cloudflare.cloudflared
+
+# Run your backend locally, then in another terminal:
+cloudflared tunnel --url http://localhost:8000
+# → gives you a permanent URL like https://battingedge.cfargotunnel.com
+Set that URL as VITE_API_URL in Vercel. Your laptop is the server during demo — no RAM limits, no cold starts, full 94.71% accuracy.

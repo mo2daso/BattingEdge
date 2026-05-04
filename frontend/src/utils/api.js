@@ -37,9 +37,11 @@ export const authResendVerify = (email)   => api.post('/auth/resend-verification
 // ── Video ─────────────────────────────────────────────────────────────────────
 export const checkHealth = () => api.get('/api/health').then(r => r.data).catch(() => ({ status: 'offline' }));
 
-export const uploadVideo = (file, onProgress) => {
+export const uploadVideo = (file, onProgress, startTime = null, endTime = null) => {
   const fd = new FormData();
   fd.append('file', file);
+  if (startTime !== null && startTime > 0) fd.append('start_time', String(startTime));
+  if (endTime   !== null)                  fd.append('end_time',   String(endTime));
   return api.post('/api/upload', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: (e) => onProgress?.(Math.round((e.loaded * 100) / e.total)),

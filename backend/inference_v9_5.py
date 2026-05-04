@@ -182,16 +182,26 @@ class StackingEnsembleClassifier:
             logger.error(f"Init Error: {e}")
             sys.exit(1)
 
-    def extract_features(self, video_path):
+    def extract_features(self, video_path, start_time=None, end_time=None):
         """
         YOUR INTERPOLATION LOGIC - UNCHANGED
         CRITICAL: Uses FULL FRAME (no YOLO cropping) to match training
+        Optional start_time / end_time (seconds) to analyse only a clip segment.
         """
         cap = cv2.VideoCapture(str(video_path))
+
+        # Seek to start of trim window if provided
+        if start_time is not None and start_time > 0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+
         frames, lms = [], []
-        
+
         with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
+                # Stop at end of trim window if provided
+                if end_time is not None and cap.get(cv2.CAP_PROP_POS_MSEC) > end_time * 1000:
+                    break
+
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -243,12 +253,12 @@ class StackingEnsembleClassifier:
         
         return resampled, sampled_lms
 
-    def predict_video(self, video_path):
+    def predict_video(self, video_path, start_time=None, end_time=None):
         """YOUR PREDICTION LOGIC - UNCHANGED"""
         if not Path(video_path).exists():
             return {"error": "File not found"}
-        
-        features, lms = self.extract_features(video_path)
+
+        features, lms = self.extract_features(video_path, start_time=start_time, end_time=end_time)
         if features is None:
             return {"error": "No pose detected"}
         

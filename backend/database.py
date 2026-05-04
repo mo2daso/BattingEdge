@@ -41,6 +41,21 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # Column already exists
 
+        # Schema migration: add start_time / end_time for video trimmer
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN start_time REAL')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added start_time column")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN end_time REAL')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added end_time column")
+        except sqlite3.OperationalError:
+            pass
+
         # NOTE: users table is managed exclusively by auth_models.init_users_table()
         # which runs on startup after init_db(). Do NOT create users table here —
         # the correct schema (nullable password_hash for Google OAuth) lives in auth_models.
@@ -53,21 +68,24 @@ def init_db():
         logger.error(f"❌ Database init failed: {e}")
         raise
 
-def save_initial_upload(video_id: str, filename: str, filepath: Path):
-    """Save initial upload record (UNCHANGED)"""
+def save_initial_upload(video_id: str, filename: str, filepath: Path,
+                        start_time: float = None, end_time: float = None):
+    """Save initial upload record with optional trim window."""
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute('''
-            INSERT INTO analyses (video_id, filename, original_path, status, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO analyses (video_id, filename, original_path, status, created_at, start_time, end_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
             video_id,
             filename,
             str(filepath),
             "uploaded",
-            datetime.now().isoformat()
+            datetime.now().isoformat(),
+            start_time,
+            end_time,
         ))
         
         conn.commit()

@@ -5,7 +5,7 @@ import {
   ArrowLeft, Download, CheckCircle2, XCircle,
   ChevronDown, ChevronUp, FileText,
   Dumbbell, Target, Footprints, Repeat,
-  Lightbulb, MessageSquare,
+  Lightbulb, MessageSquare, ShieldCheck, AlertTriangle, ArrowRight,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { getResult, getPdfUrl, getOverlayUrl, saveToHistory, fetchHistoryFromBackend } from '../utils/api';
@@ -319,7 +319,7 @@ const ResultPage = ({ onOpenAuth }) => {
   }, [videoId]);
 
   if (loading) return <LoadingScreen />;
-  if (error)   return <ErrorScreen error={error} onBack={() => navigate('/')} />;
+  if (error)   return <ErrorScreen error={error} onBack={() => navigate('/analyze')} />;
 
   const result = data.result || {};
   const fa     = (typeof result.form_analysis === 'string'
@@ -337,6 +337,16 @@ const ResultPage = ({ onOpenAuth }) => {
   const improvements = fa.key_improvements   ?? [];
   const gc       = gradeColor(grade);
   const gradeMsg = GRADE_MESSAGE[grade] || '';
+
+  // ── Groq Vision fields (stored inside form_analysis) ──────────────────
+  const aiVerified         = fa.ai_verified         ?? false;
+  const aiLabel            = fa.ai_validation_label ?? null;
+  const coachingObservation = fa.coaching_observation ?? '';
+  const keyStrength        = fa.key_strength        ?? '';
+  const keyImprovement     = fa.key_improvement     ?? '';
+  const batWarning         = fa.bat_warning         ?? null;
+  const bodyWarning        = fa.body_warning        ?? null;
+  const groqAvailable      = fa.groq_available      ?? false;
 
   return (
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
@@ -359,6 +369,28 @@ const ResultPage = ({ onOpenAuth }) => {
           </a>
         </div>
 
+        {/* ── Warning banners ───────────────────────────────────────── */}
+        {batWarning && (
+          <motion.div
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-xl border border-yellow-500/30 mb-4 text-sm"
+            style={{ background: 'rgba(234,179,8,0.08)', color: '#fbbf24' }}
+          >
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{batWarning}</span>
+          </motion.div>
+        )}
+        {bodyWarning && (
+          <motion.div
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-xl border border-yellow-500/30 mb-4 text-sm"
+            style={{ background: 'rgba(234,179,8,0.08)', color: '#fbbf24' }}
+          >
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{bodyWarning}</span>
+          </motion.div>
+        )}
+
         {/* ── Shot header card ─────────────────────────────────────── */}
         <motion.div
           initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
@@ -367,7 +399,22 @@ const ResultPage = ({ onOpenAuth }) => {
         >
           <div className="flex-1">
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-dim)' }}>Shot Detected</p>
-            <h1 className="text-3xl sm:text-4xl font-display font-extrabold mb-1" style={{ color: 'var(--text)' }}>{shot}</h1>
+            <div className="flex flex-wrap items-center gap-3 mb-1">
+              <h1 className="text-3xl sm:text-4xl font-display font-extrabold" style={{ color: 'var(--text)' }}>{shot}</h1>
+              {/* AI verification badge */}
+              {aiVerified && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ background: 'rgba(0,255,136,0.12)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }}>
+                  <ShieldCheck size={11} /> AI Vision Verified
+                </span>
+              )}
+              {!aiVerified && aiLabel && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ background: 'rgba(148,163,184,0.1)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)' }}>
+                  <ShieldCheck size={11} /> {aiLabel}
+                </span>
+              )}
+            </div>
 
             {/* Beginner grade message */}
             {gradeMsg && (
@@ -491,6 +538,56 @@ const ResultPage = ({ onOpenAuth }) => {
                 </div>
               )}
             </motion.div>
+
+            {/* AI Coach Insight */}
+            {groqAvailable && (coachingObservation || keyStrength || keyImprovement) && (
+              <motion.div
+                initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.16 }}
+                className="p-5 rounded-2xl border space-y-3"
+                style={{ background: 'rgba(0,212,255,0.04)', borderColor: 'rgba(0,212,255,0.18)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={15} className="text-neon-blue" />
+                  <h3 className="font-display font-bold text-sm text-neon-blue">AI Coach Insight</h3>
+                  {aiVerified && (
+                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(0,255,136,0.1)', color: '#00ff88' }}>
+                      Vision Verified
+                    </span>
+                  )}
+                </div>
+
+                {coachingObservation && (
+                  <p className="text-sm leading-relaxed italic"
+                     style={{ color: 'var(--text-muted)' }}>
+                    "{coachingObservation}"
+                  </p>
+                )}
+
+                <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                  {keyStrength && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl border border-neon-green/15"
+                         style={{ background: 'rgba(0,255,136,0.04)' }}>
+                      <CheckCircle2 size={14} className="text-neon-green flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-bold text-neon-green mb-0.5 uppercase tracking-wide">Strength</p>
+                        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{keyStrength}</p>
+                      </div>
+                    </div>
+                  )}
+                  {keyImprovement && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl border border-orange-400/15"
+                         style={{ background: 'rgba(251,146,60,0.04)' }}>
+                      <ArrowRight size={14} className="text-orange-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-bold text-orange-400 mb-0.5 uppercase tracking-wide">Improve</p>
+                        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{keyImprovement}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
             {/* Key Points to Master */}
             {(() => {
@@ -721,17 +818,28 @@ const LoadingScreen = () => {
   );
 };
 
-const ErrorScreen = ({ error, onBack }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center text-center p-4"
-       style={{ background: 'var(--bg)' }}>
-    <XCircle size={48} className="text-red-400 mb-4" />
-    <h2 className="text-2xl font-display font-bold mb-2" style={{ color: 'var(--text)' }}>Analysis Failed</h2>
-    <p className="text-sm mb-6 max-w-sm" style={{ color: 'var(--text-muted)' }}>{error}</p>
-    <button onClick={onBack}
-      className="px-6 py-3 bg-neon-blue text-black rounded-xl font-bold text-sm hover:bg-[#33deff] transition-all">
-      Try Again
-    </button>
-  </div>
-);
+const ErrorScreen = ({ error, onBack }) => {
+  const isCricketShotError = (error || '').toLowerCase().includes('no cricket shot');
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center p-4"
+         style={{ background: 'var(--bg)' }}>
+      <XCircle size={48} className={isCricketShotError ? 'text-yellow-400 mb-4' : 'text-red-400 mb-4'} />
+      <h2 className="text-2xl font-display font-bold mb-2" style={{ color: 'var(--text)' }}>
+        {isCricketShotError ? 'No Cricket Shot Detected' : 'Analysis Failed'}
+      </h2>
+      <p className="text-sm mb-2 max-w-sm" style={{ color: 'var(--text-muted)' }}>{error}</p>
+      {isCricketShotError && (
+        <p className="text-xs mb-6 max-w-xs" style={{ color: 'var(--text-dim)' }}>
+          Tip: Record side-on with your full body visible, good lighting, and play a clear batting shot.
+        </p>
+      )}
+      {!isCricketShotError && <div className="mb-6" />}
+      <button onClick={onBack}
+        className="px-6 py-3 bg-neon-blue text-black rounded-xl font-bold text-sm hover:bg-[#33deff] transition-all">
+        Try Again
+      </button>
+    </div>
+  );
+};
 
 export default ResultPage;

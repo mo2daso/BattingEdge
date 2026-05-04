@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+import copy
 import logging
 import ipaddress
 import time
@@ -9,6 +10,8 @@ from pathlib import Path
 import aiofiles
 import uvicorn
 from dotenv import load_dotenv
+from jose import JWTError, jwt as _jwt
+from pydantic import BaseModel as _BaseModel
 
 load_dotenv(Path(__file__).resolve().parent / '.env')
 
@@ -24,6 +27,9 @@ try:
     import auth_models
     from auth_router  import router as auth_router
     from groq_router  import router as groq_router
+    from groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
+    from video_checks import check_motion, check_pose_completeness, auto_detect_trim
+    import auth_utils as _auth_utils
 except ImportError:
     from backend.inference_v9_5 import StackingEnsembleClassifier
     import backend.database as db
@@ -31,8 +37,11 @@ except ImportError:
     import backend.auth_models as auth_models
     from backend.auth_router  import router as auth_router
     from backend.groq_router  import router as groq_router
+    from backend.groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
+    from backend.video_checks import check_motion, check_pose_completeness, auto_detect_trim
+    import backend.auth_utils as _auth_utils
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -176,10 +185,32 @@ def process_video_task(video_id: str, input_path: Path):
     logger.info(f"{'=' * 60}")
 
     try:
+        # Retrieve trim window set at upload time
+        _meta = db.get_analysis(video_id) or {}
+        _start_time = _meta.get('start_time')
+        _end_time   = _meta.get('end_time')
+
+        # ── Pre-inference checks ──────────────────────────────────────────────
+
+        # Feature 5: Auto-trim — detect active shot window when user didn't trim
+        if _start_time is None and _end_time is None:
+            _auto_s, _auto_e = auto_detect_trim(str(input_path))
+            if _auto_s is not None:
+                _start_time, _end_time = _auto_s, _auto_e
+                logger.info(f"[api/analyze]    ✂️ Auto-trim: {_start_time:.1f}s → {_end_time:.1f}s")
+
+        # Feature 3: Motion check — reject standing-still / non-action videos
+        _has_motion, _motion_warning = check_motion(str(input_path), _start_time, _end_time)
+        if not _has_motion:
+            logger.warning(f"[api/analyze]    ⚠️ Motion check failed: {_motion_warning}")
+            db.update_progress(video_id, 0, status="failed")
+            db.update_status(video_id, "failed", _motion_warning)
+            return
+
         # Step 1: Pose extraction / inference (progress 10 → 60)
         db.update_progress(video_id, 10, status="processing")
         logger.info(f"[api/analyze] Step 1/4: Running inference...")
-        result = classifier.predict_video(str(input_path))
+        result = classifier.predict_video(str(input_path), start_time=_start_time, end_time=_end_time)
         result['filename'] = input_path.name
 
         if 'error' in result:
@@ -191,17 +222,50 @@ def process_video_task(video_id: str, input_path: Path):
 
         db.update_progress(video_id, 60)
         logger.info(f"[api/analyze]    ✅ Prediction: {result['prediction']}")
-        logger.info(f"[api/analyze]    ✅ Confidence: {result['confidence']:.1f}%")
+        logger.info(f"[api/analyze]    ✅ Confidence: {float(result.get('confidence', 0)):.1f}%")
         logger.info(f"[api/analyze]    ✅ Score: {result['form_analysis']['overall_score']}/100")
+
+        # Feature 2: Pose completeness — warn if body landmarks < 50 % visible
+        _, _pose_warning = check_pose_completeness(str(input_path), _start_time, _end_time)
+        if _pose_warning:
+            _fa = result.get('form_analysis', {})
+            if not _fa.get('body_warning'):   # don't overwrite Groq's check later
+                _fa['body_warning'] = _pose_warning
+            result['form_analysis'] = _fa
+            logger.info(f"[api/analyze]    ⚠️ Pose completeness: {_pose_warning}")
+
+        # Step 1b: Groq Vision enhancement (sync, 14 s timeout via SDK client)
+        try:
+            _groq_result = analyze_with_groq_vision(
+                str(input_path),
+                result.get('prediction'),
+                result.get('confidence'),
+                start_time=_start_time,
+                end_time=_end_time,
+            )
+            result = groq_merge(result, _groq_result)
+
+            if result.get('error') and result.get('cricket_shot_detected') is False:
+                logger.warning(f"[api/analyze]    ⚠️ Groq: {result['error']}")
+                db.update_progress(video_id, 0, status="failed")
+                db.update_status(video_id, "failed", result['error'])
+                return
+
+            logger.info(
+                f"[api/analyze]    ✅ Groq Vision: "
+                f"ai_verified={result.get('form_analysis', {}).get('ai_verified')}, "
+                f"enhanced_score={result.get('form_analysis', {}).get('overall_score')}"
+            )
+        except Exception as _groq_exc:
+            logger.warning(f"[api/analyze]    ⚠️ Groq Vision failed (using ML result): {_groq_exc}")
 
         # Step 2: Overlay generation (progress 60 → 85)
         db.update_progress(video_id, 60)
         logger.info(f"[api/analyze] Step 2/4: Creating overlay video...")
-        output_filename = f"{video_id}_overlay.webm"
+        output_filename = f"{video_id}_overlay.mp4"
         output_path = OUTPUT_DIR / output_filename
 
         try:
-            import copy
             overlay_result = copy.deepcopy(result)
             for chk in overlay_result.get('form_analysis', {}).get('checks', []):
                 for field in ('value', 'ideal_range'):
@@ -300,7 +364,12 @@ async def server_info(request: Request):
     return {"lan_ip": lan_ip, "api_port": 8000, "frontend_port": 5173}
 
 @app.post("/api/upload")
-async def upload_video(request: Request, file: UploadFile = File(...)):
+async def upload_video(
+    request: Request,
+    file: UploadFile = File(...),
+    start_time: float = Form(default=None),
+    end_time:   float = Form(default=None),
+):
     """Upload endpoint with rate limiting and file validation."""
     client_ip = request.client.host if request.client else "unknown"
     if not _check_rate(client_ip):
@@ -336,8 +405,8 @@ async def upload_video(request: Request, file: UploadFile = File(...)):
 
             await out_file.write(content)
         
-        db.save_initial_upload(video_id, file.filename, file_path)
-        
+        db.save_initial_upload(video_id, file.filename, file_path, start_time=start_time, end_time=end_time)
+
         logger.info(f"✅ Upload successful: {video_id} ({file.filename}, {file_size_mb:.1f}MB)")
         
         return {
@@ -478,9 +547,6 @@ async def get_pdf_report(video_id: str):
 # ================= USER HISTORY ENDPOINTS =================
 
 from fastapi import Header
-from jose import JWTError, jwt as _jwt
-import auth_utils as _auth_utils
-from pydantic import BaseModel as _BaseModel
 
 class HistorySaveRequest(_BaseModel):
     video_id: str

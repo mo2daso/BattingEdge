@@ -1,22 +1,23 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Camera, FileVideo, X, AlertCircle, Info,
-  CheckCircle2, Loader2, Zap, Scissors
+  CheckCircle2, Loader2, Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import CameraModal from '../components/CameraModal';
+import VideoTrimmer from '../components/VideoTrimmer';
 import { uploadVideo, triggerAnalysis, getResult, saveToHistory } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 // ── Progress Steps ─────────────────────────────────────────────────────────────
 const STEPS = [
-  { label: 'Uploading',         icon: Upload,       range: [0, 10]  },
-  { label: 'Extracting Pose',   icon: Zap,          range: [10, 60] },
-  { label: 'AI Classification', icon: Loader2,      range: [60, 85] },
-  { label: 'Generating Report', icon: FileVideo,    range: [85, 100]},
+  { label: 'Uploading',         icon: Upload,    range: [0,  10] },
+  { label: 'Extracting Pose',   icon: Zap,       range: [10, 60] },
+  { label: 'AI Classification', icon: Loader2,   range: [60, 85] },
+  { label: 'Generating Report', icon: FileVideo, range: [85, 100] },
 ];
 
 const getStep = (progress) => {
@@ -31,7 +32,6 @@ const ProgressStepper = ({ progress, status }) => {
   const activeStep = getStep(progress);
   return (
     <div className="w-full max-w-lg mx-auto">
-      {/* Bar */}
       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden mb-8">
         <motion.div
           className="h-full progress-bar rounded-full"
@@ -39,13 +39,10 @@ const ProgressStepper = ({ progress, status }) => {
           transition={{ duration: 0.8, ease: 'easeOut' }}
         />
       </div>
-
-      {/* Steps */}
       <div className="grid grid-cols-4 gap-2">
         {STEPS.map((s, i) => {
           const done    = i < activeStep;
           const active  = i === activeStep;
-          const pending = i > activeStep;
           return (
             <div key={s.label} className="flex flex-col items-center gap-2 text-center">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
@@ -53,10 +50,7 @@ const ProgressStepper = ({ progress, status }) => {
                 active ? 'bg-neon-blue/10 border-neon-blue text-neon-blue' :
                          'bg-white/3 border-white/10 text-gray-600'
               }`}>
-                {done
-                  ? <CheckCircle2 size={18} />
-                  : <s.icon size={16} className={active ? 'animate-pulse' : ''} />
-                }
+                {done ? <CheckCircle2 size={18} /> : <s.icon size={16} className={active ? 'animate-pulse' : ''} />}
               </div>
               <span className={`text-[10px] font-medium leading-tight ${
                 done ? 'text-neon-green' : active ? 'text-white' : 'text-gray-600'
@@ -67,7 +61,6 @@ const ProgressStepper = ({ progress, status }) => {
           );
         })}
       </div>
-
       <div className="mt-6 text-center">
         <p className="text-2xl font-display font-bold text-white">{Math.round(progress)}%</p>
         <p className="text-sm text-gray-500 mt-1">
@@ -86,68 +79,24 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const fileRef   = useRef(null);
   const pollRef   = useRef(null);
 
-  const [tab,          setTab]          = useState('upload');
-  const [file,         setFile]         = useState(null);
-  const [isDragging,   setIsDragging]   = useState(false);
-  const [stage,        setStage]        = useState('idle');
-  const [uploadPct,    setUploadPct]    = useState(0);
+  const [tab,              setTab]              = useState('upload');
+  const [file,             setFile]             = useState(null);
+  const [isDragging,       setIsDragging]       = useState(false);
+  const [stage,            setStage]            = useState('idle');
+  const [uploadPct,        setUploadPct]        = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisStatus,   setAnalysisStatus]   = useState('');
-  const [errMsg,       setErrMsg]       = useState('');
-  const [camOpen,      setCamOpen]      = useState(false);
+  const [errMsg,           setErrMsg]           = useState('');
+  const [camOpen,          setCamOpen]          = useState(false);
 
-  // ── Video trim state ──────────────────────────────────────────────────────────
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [trimStart,     setTrimStart]     = useState(0);
-  const [trimEnd,       setTrimEnd]       = useState(0);
-  const [videoUrl,      setVideoUrl]      = useState(null);
-  const [isTrimming,    setIsTrimming]    = useState(false);
-  const [previewSpeed,  setPreviewSpeed]  = useState(1);
-  const trimVideoRef = useRef(null);
-
-  // ── File handling ───────────────────────────────────────────────────────────
+  // ── File handling ──────────────────────────────────────────────────────────
   const acceptFile = (f) => {
     if (!f) return;
     if (f.size > 150 * 1024 * 1024) { toast.error('File too large. Max 150MB.'); return; }
     setFile(f);
     setStage('idle');
     setErrMsg('');
-    // Load video to get duration for trim sliders
-    const url = URL.createObjectURL(f);
-    setVideoUrl(url);
-    const vid = document.createElement('video');
-    vid.src = url;
-    vid.onloadedmetadata = () => {
-      const dur = Math.floor(vid.duration);
-      setVideoDuration(dur);
-      setTrimStart(0);
-      setTrimEnd(dur);
-    };
   };
-
-  // Client-side video trim using captureStream + MediaRecorder
-  const trimVideoBlob = (sourceFile, startSec, endSec) => new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(sourceFile);
-    const vid = document.createElement('video');
-    vid.src = url; vid.muted = true; vid.preload = 'auto';
-    vid.onloadedmetadata = () => {
-      vid.currentTime = startSec;
-      vid.onseeked = () => {
-        const duration = endSec - startSec;
-        const mimeType = ['video/webm;codecs=vp8','video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
-        let stream;
-        try { stream = vid.captureStream(); } catch { resolve(sourceFile); URL.revokeObjectURL(url); return; }
-        const recorder = new MediaRecorder(stream, { mimeType });
-        const chunks = [];
-        recorder.ondataavailable = e => { if (e.data?.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => { URL.revokeObjectURL(url); resolve(new Blob(chunks, { type: mimeType })); };
-        recorder.start(100);
-        vid.play().catch(() => {});
-        setTimeout(() => { recorder.stop(); vid.pause(); }, duration * 1000 + 200);
-      };
-    };
-    vid.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Cannot read video')); };
-  });
 
   const handleDrop = (e) => {
     e.preventDefault(); setIsDragging(false);
@@ -156,7 +105,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
   const handleCameraVideo = (f) => { setTab('upload'); acceptFile(f); };
 
-  // ── Poll result ─────────────────────────────────────────────────────────────
+  // ── Poll result ────────────────────────────────────────────────────────────
   const startPolling = useCallback((videoId) => {
     let failCount = 0;
     pollRef.current = setInterval(async () => {
@@ -165,7 +114,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
         if (res.status === 'completed') {
           clearInterval(pollRef.current);
           setAnalysisProgress(100);
-          // only save to history when logged in (ResultPage handles this too, avoiding double-save)
           if (user?.id) {
             const fa = res.result?.form_analysis || {};
             saveToHistory(videoId, res.result?.prediction, fa.overall_score, fa.grade, user.id);
@@ -176,9 +124,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
           setStage('error');
           setErrMsg(res.error || 'Analysis failed. Please try again.');
         } else {
-          // still processing
-          const p = res.progress ?? 0;
-          setAnalysisProgress(p);
+          setAnalysisProgress(res.progress ?? 0);
           setAnalysisStatus(res.status || 'processing');
           failCount = 0;
         }
@@ -193,43 +139,34 @@ const AnalyzePage = ({ onOpenAuth }) => {
     }, 2000);
   }, [navigate]);
 
-  // ── Main analyze flow (with optional trim) ──────────────────────────────────
-  const handleAnalyze = async () => {
-    if (!file) return;
+  // ── Core upload + analyze flow ─────────────────────────────────────────────
+  const doUploadAndAnalyze = async (fileToUpload, startTime = null, endTime = null) => {
     setErrMsg('');
     try {
-      let uploadFile = file;
-      // Trim if user selected a subset of the video
-      const needsTrim = videoDuration > 0 && (trimStart > 0 || trimEnd < videoDuration);
-      if (needsTrim) {
-        setIsTrimming(true);
-        try {
-          const trimmed = await trimVideoBlob(file, trimStart, trimEnd);
-          uploadFile = new File([trimmed], file.name, { type: trimmed.type });
-        } catch { /* fall back to full video */ }
-        setIsTrimming(false);
-      }
       setStage('uploading');
       setUploadPct(0);
-      const { video_id } = await uploadVideo(uploadFile, setUploadPct);
+      const { video_id } = await uploadVideo(fileToUpload, setUploadPct, startTime, endTime);
       setStage('analyzing');
       setAnalysisProgress(5);
       await triggerAnalysis(video_id);
       startPolling(video_id);
     } catch (err) {
       clearInterval(pollRef.current);
-      setIsTrimming(false);
       setStage('error');
       setErrMsg(err.response?.data?.detail || err.message || 'Something went wrong');
     }
   };
 
+  // VideoTrimmer callbacks
+  const handleTrimComplete = (fileToUpload, startTime, endTime) => {
+    doUploadAndAnalyze(fileToUpload, startTime > 0 ? startTime : null, endTime);
+  };
+  const handleSkipTrim = () => { doUploadAndAnalyze(file); };
+
   const reset = () => {
     clearInterval(pollRef.current);
     setFile(null); setStage('idle'); setUploadPct(0);
     setAnalysisProgress(0); setErrMsg('');
-    if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(null); }
-    setVideoDuration(0); setTrimStart(0); setTrimEnd(0);
   };
 
   const isProcessing = stage === 'uploading' || stage === 'analyzing';
@@ -251,16 +188,12 @@ const AnalyzePage = ({ onOpenAuth }) => {
             save your history, and track your progress.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => onOpenAuth('register')}
-              className="px-8 py-3 rounded-xl bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all shadow-neon"
-            >
+            <button onClick={() => onOpenAuth('register')}
+              className="px-8 py-3 rounded-xl bg-neon-blue text-black font-bold text-sm hover:bg-[#33deff] transition-all shadow-neon">
               Sign Up Free
             </button>
-            <button
-              onClick={() => onOpenAuth('login')}
-              className="px-8 py-3 rounded-xl border border-border-soft text-sm font-semibold hover:border-neon-blue/40 transition-all text-white"
-            >
+            <button onClick={() => onOpenAuth('login')}
+              className="px-8 py-3 rounded-xl border border-border-soft text-sm font-semibold hover:border-neon-blue/40 transition-all text-white">
               Sign In
             </button>
           </div>
@@ -329,7 +262,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
               <div className="flex gap-1 bg-surface rounded-2xl p-1.5 mb-6">
                 {[
                   { id: 'upload', label: 'Upload Video', icon: Upload },
-                  { id: 'camera', label: 'Use Camera',   icon: Camera },
+                  { id: 'camera', label: 'Use Camera',  icon: Camera },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -366,7 +299,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
                   <div className="flex items-start gap-2 bg-neon-blue/5 border border-neon-blue/10 rounded-xl p-4 text-left max-w-sm mx-auto mb-8">
                     <Info size={15} className="text-neon-blue mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-blue-200/80 leading-relaxed">
-                      Stand <strong className="text-white">side-on</strong> (bowler's view), full body head to toe, good lighting. Clear video = accurate analysis.
+                      Stand <strong className="text-white">side-on</strong> (bowler's view), full body head to toe, good lighting.
                     </p>
                   </div>
                   <button
@@ -380,222 +313,84 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
               {/* ── UPLOAD TAB ── */}
               {tab === 'upload' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  {/* Drop zone */}
-                  <div
-                    className={`relative rounded-3xl border-2 border-dashed transition-all duration-200 ${
-                      isDragging ? 'border-neon-blue bg-neon-blue/5 scale-[1.01]' : 'border-border-soft hover:border-white/20 bg-surface-2'
-                    }`}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                  >
-                    <div className="p-5 sm:p-10 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[320px] text-center">
-                      <AnimatePresence mode="wait">
-                        {!file ? (
-                          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center">
-                            <div
-                              onClick={() => fileRef.current?.click()}
-                              className="w-20 h-20 rounded-2xl bg-white/5 border border-border-soft flex items-center justify-center cursor-pointer hover:bg-white/8 hover:border-white/20 transition-all group mb-6"
-                            >
-                              <Upload size={32} className="text-gray-500 group-hover:text-neon-blue transition-colors" />
-                            </div>
-                            <h3 className="text-xl font-display font-bold text-white mb-2">Drop your video here</h3>
-                            <p className="text-gray-500 text-sm max-w-xs mb-4">MP4, MOV, AVI, WebM — up to 150MB.</p>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
 
-                            <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl p-4 text-left max-w-xs mb-3">
-                              <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-                              <p className="text-xs text-red-200/80 leading-relaxed">
-                                <strong className="text-white">Only 1 person</strong> must be in the video. Multiple people will confuse the AI and give wrong results.
-                              </p>
-                            </div>
-                            <div className="flex items-start gap-2 bg-neon-blue/5 border border-neon-blue/10 rounded-xl p-4 text-left max-w-xs mb-7">
-                              <Info size={14} className="text-neon-blue mt-0.5 flex-shrink-0" />
-                              <p className="text-xs text-blue-200/70 leading-relaxed">
-                                <strong className="text-white">Best accuracy:</strong> Record <u>side-on</u> (bowler's view), full body visible head to toe, clear lighting.
-                              </p>
-                            </div>
+                  {/* Drop zone (shown when no file yet) */}
+                  {!file && (
+                    <div
+                      className={`relative rounded-3xl border-2 border-dashed transition-all duration-200 ${
+                        isDragging ? 'border-neon-blue bg-neon-blue/5 scale-[1.01]' : 'border-border-soft hover:border-white/20 bg-surface-2'
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={handleDrop}
+                    >
+                      <div className="p-5 sm:p-10 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[320px] text-center">
+                        <div
+                          onClick={() => fileRef.current?.click()}
+                          className="w-20 h-20 rounded-2xl bg-white/5 border border-border-soft flex items-center justify-center cursor-pointer hover:bg-white/8 hover:border-white/20 transition-all group mb-6"
+                        >
+                          <Upload size={32} className="text-gray-500 group-hover:text-neon-blue transition-colors" />
+                        </div>
+                        <h3 className="text-xl font-display font-bold text-white mb-2">Drop your video here</h3>
+                        <p className="text-gray-500 text-sm max-w-xs mb-4">MP4, MOV, AVI, WebM — up to 150MB.</p>
 
-                            <button
-                              onClick={() => fileRef.current?.click()}
-                              className="px-6 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
-                            >
-                              Browse File
-                            </button>
-                          </motion.div>
-                        ) : (
-                          <motion.div key="selected" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
-                            {/* File info row */}
-                            <div className="flex items-center gap-3 bg-white/5 border border-border-soft rounded-2xl p-4 mb-5">
-                              <div className="w-10 h-10 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center flex-shrink-0">
-                                <FileVideo size={18} className="text-neon-blue" />
-                              </div>
-                              <div className="flex-1 overflow-hidden text-left">
-                                <p className="text-white font-medium text-sm truncate">{file.name}</p>
-                                <p className="text-gray-500 text-xs mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB {videoDuration > 0 && `· ${videoDuration}s`}</p>
-                              </div>
-                              <button onClick={reset} className="p-1.5 rounded-full hover:bg-white/10 text-gray-500 hover:text-white transition-all flex-shrink-0">
-                                <X size={16} />
-                              </button>
-                            </div>
+                        <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl p-4 text-left max-w-xs mb-3">
+                          <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-red-200/80 leading-relaxed">
+                            <strong className="text-white">Only 1 person</strong> must be in the video. Multiple people will give wrong results.
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2 bg-neon-blue/5 border border-neon-blue/10 rounded-xl p-4 text-left max-w-xs mb-7">
+                          <Info size={14} className="text-neon-blue mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-blue-200/70 leading-relaxed">
+                            <strong className="text-white">Best accuracy:</strong> Record <u>side-on</u> (bowler's view), full body visible head to toe, clear lighting.
+                          </p>
+                        </div>
 
-                            {/* Video preview */}
-                            {videoUrl && (
-                              <div className="mb-5 rounded-2xl overflow-hidden border border-border-dim bg-black">
-                                <video
-                                  ref={trimVideoRef}
-                                  src={videoUrl}
-                                  className="w-full max-h-52 object-contain"
-                                  muted
-                                  playsInline
-                                  onTimeUpdate={() => {
-                                    if (trimVideoRef.current && trimVideoRef.current.currentTime >= trimEnd) {
-                                      trimVideoRef.current.pause();
-                                    }
-                                  }}
-                                />
-                                {/* Preview speed controls */}
-                                <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border-dim" style={{ background: 'var(--surface-2)' }}>
-                                  <span className="text-xs font-medium" style={{ color: 'var(--text-dim)' }}>Speed:</span>
-                                  {[0.25, 0.5, 0.75, 1].map(s => (
-                                    <button
-                                      key={s}
-                                      onClick={() => {
-                                        setPreviewSpeed(s);
-                                        if (trimVideoRef.current) trimVideoRef.current.playbackRate = s;
-                                      }}
-                                      className={`min-h-[36px] px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                                        previewSpeed === s
-                                          ? 'bg-neon-blue text-black'
-                                          : 'border border-border-dim hover:border-border-soft'
-                                      }`}
-                                      style={previewSpeed !== s ? { background: 'var(--surface-3)', color: 'var(--text-muted)' } : {}}
-                                    >
-                                      {s}×
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Trim sliders — only if video is longer than 5s */}
-                            {videoDuration > 5 && (
-                              <div className="mb-5 rounded-2xl border border-border-dim overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-                                {/* Header */}
-                                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
-                                  <Scissors size={13} className="text-neon-blue" />
-                                  <span className="text-sm font-semibold text-white">Trim Clip</span>
-                                  <span className="ml-auto text-xs font-mono text-neon-green">{trimEnd - trimStart}s selected</span>
-                                </div>
-
-                                <div className="p-4 space-y-4">
-                                  {/* Visual timeline bar */}
-                                  <div className="relative h-9 rounded-lg overflow-hidden border border-border-dim" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                                    {/* Left trimmed region */}
-                                    <div
-                                      className="absolute top-0 left-0 h-full"
-                                      style={{ width: `${(trimStart / videoDuration) * 100}%`, background: 'rgba(255,255,255,0.04)' }}
-                                    />
-                                    {/* Selected region */}
-                                    <div
-                                      className="absolute top-0 h-full border-x-2 border-neon-blue"
-                                      style={{
-                                        left: `${(trimStart / videoDuration) * 100}%`,
-                                        width: `${((trimEnd - trimStart) / videoDuration) * 100}%`,
-                                        background: 'rgba(0,212,255,0.22)',
-                                      }}
-                                    />
-                                    {/* Right trimmed region */}
-                                    <div
-                                      className="absolute top-0 right-0 h-full"
-                                      style={{ width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: 'rgba(255,255,255,0.04)' }}
-                                    />
-                                    {/* Labels overlay */}
-                                    <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
-                                      <span className="text-[10px] font-mono text-gray-500">0s</span>
-                                      <span className="text-[10px] font-mono text-neon-blue font-bold">{trimStart}s – {trimEnd}s</span>
-                                      <span className="text-[10px] font-mono text-gray-500">{videoDuration}s</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Legend */}
-                                  <div className="flex items-center gap-4 text-[11px]">
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-3 h-3 rounded-sm border border-border-dim" style={{ background: 'rgba(255,255,255,0.06)' }} />
-                                      <span style={{ color: 'var(--text-dim)' }}>Trimmed out</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-3 h-3 rounded-sm border-2 border-neon-blue" style={{ background: 'rgba(0,212,255,0.25)' }} />
-                                      <span className="text-neon-blue">Sent for analysis</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Start slider */}
-                                  <div>
-                                    <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'var(--text-dim)' }}>
-                                      <span>Start</span>
-                                      <span className="font-mono text-white">{trimStart}s</span>
-                                    </div>
-                                    <input
-                                      type="range" min={0} max={videoDuration - 1} value={trimStart}
-                                      onChange={e => {
-                                        const v = Math.min(Number(e.target.value), trimEnd - 1);
-                                        setTrimStart(v);
-                                        if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
-                                      }}
-                                      className="w-full accent-neon-blue"
-                                    />
-                                  </div>
-
-                                  {/* End slider */}
-                                  <div>
-                                    <div className="flex justify-between text-[11px] mb-1.5" style={{ color: 'var(--text-dim)' }}>
-                                      <span>End</span>
-                                      <span className="font-mono text-white">{trimEnd}s</span>
-                                    </div>
-                                    <input
-                                      type="range" min={1} max={videoDuration} value={trimEnd}
-                                      onChange={e => {
-                                        const v = Math.max(Number(e.target.value), trimStart + 1);
-                                        setTrimEnd(v);
-                                        if (trimVideoRef.current) trimVideoRef.current.currentTime = v;
-                                      }}
-                                      className="w-full accent-neon-blue"
-                                    />
-                                  </div>
-
-                                  {/* Preview button */}
-                                  <button
-                                    onClick={() => {
-                                      if (trimVideoRef.current) {
-                                        trimVideoRef.current.currentTime = trimStart;
-                                        trimVideoRef.current.play();
-                                      }
-                                    }}
-                                    className="w-full flex items-center justify-center gap-2 min-h-[44px] rounded-xl border border-neon-blue/40 text-neon-blue text-sm font-semibold hover:bg-neon-blue/10 transition-all"
-                                  >
-                                    ▶ Preview Selected Clip ({trimEnd - trimStart}s)
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            <button
-                              onClick={handleAnalyze}
-                              disabled={isTrimming}
-                              className="w-full py-4 rounded-2xl bg-neon-blue text-black font-bold text-lg hover:bg-[#33deff] transition-all shadow-neon hover:shadow-neon-strong disabled:opacity-60"
-                            >
-                              {isTrimming ? 'Trimming clip…' : 'Start Analysis'}
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                        <button
+                          onClick={() => fileRef.current?.click()}
+                          className="px-6 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
+                        >
+                          Browse File
+                        </button>
+                      </div>
+                      <input ref={fileRef} type="file" accept="video/*" className="hidden"
+                             onChange={e => e.target.files?.[0] && acceptFile(e.target.files[0])} />
                     </div>
-                    <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={e => e.target.files?.[0] && acceptFile(e.target.files[0])} />
-                  </div>
+                  )}
+
+                  {/* File selected → show info row + VideoTrimmer */}
+                  {file && (
+                    <motion.div
+                      key="selected"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="space-y-4"
+                    >
+                      {/* File info row */}
+                      <div className="flex items-center gap-3 bg-white/5 border border-border-soft rounded-2xl p-4">
+                        <div className="w-10 h-10 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center flex-shrink-0">
+                          <FileVideo size={18} className="text-neon-blue" />
+                        </div>
+                        <div className="flex-1 overflow-hidden text-left">
+                          <p className="text-white font-medium text-sm truncate">{file.name}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                        </div>
+                        <button onClick={reset}
+                          className="p-1.5 rounded-full hover:bg-white/10 text-gray-500 hover:text-white transition-all flex-shrink-0">
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {/* VideoTrimmer — always shown when file selected */}
+                      <VideoTrimmer
+                        file={file}
+                        onTrimComplete={handleTrimComplete}
+                        onSkip={handleSkipTrim}
+                      />
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
 
