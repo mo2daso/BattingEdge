@@ -206,9 +206,8 @@ def merge_results(ml_result, groq_result):
         return result
 
     # ── No cricket shot visible ────────────────────────────────────────────
-    # Only hard-fail if ML itself is also uncertain (< 45% confidence).
-    # A confident ML prediction overrides Groq's false negative — Groq sees
-    # just 7 static frames and can miss fast-moving shots.
+    # Only override Groq's rejection if ML is >= 50% confident.
+    # The ML model always classifies into one of 5 shots with no "none" class.
     if not groq_result.get('cricket_shot_detected', True):
         ml_conf = ml_result.get('confidence', 0)
         if isinstance(ml_conf, str):
@@ -216,8 +215,8 @@ def merge_results(ml_result, groq_result):
         elif ml_conf > 1:          # already a percentage like 64.8
             ml_conf = ml_conf / 100
 
-        if ml_conf >= 0.45:
-            # ML is confident — use ML result, flag Groq as unverified
+        if ml_conf >= 0.50:
+            # ML is highly confident — use ML result, flag Groq as unverified
             result = copy.deepcopy(ml_result)
             fa = result.get('form_analysis', {})
             fa['groq_available']      = True
@@ -254,10 +253,9 @@ def merge_results(ml_result, groq_result):
     )
     ml_norm = ml_shot.replace('_', ' ')
     ai_verified = ml_norm == groq_shot or ml_norm in groq_shot or groq_shot in ml_norm
-
-    # High-confidence Groq disagreement → prefer Groq prediction
-    if not ai_verified and groq_result.get('groq_confidence') == 'high':
-        result['prediction'] = groq_result.get('predicted_shot', result.get('prediction'))
+    # Note: ML prediction is never overridden — Groq shot names don't match ML class labels
+    # (e.g. Groq returns "defensive shot" / "straight drive" which aren't ML classes).
+    # Disagreement is flagged via ai_verified=False; ML label is always the one shown.
 
     # ── Update form_analysis ───────────────────────────────────────────────
     fa = result.get('form_analysis', {})

@@ -189,22 +189,27 @@ class StackingEnsembleClassifier:
         Optional start_time / end_time (seconds) to analyse only a clip segment.
         """
         cap = cv2.VideoCapture(str(video_path))
+        _fps = cap.get(cv2.CAP_PROP_FPS) or 30
 
-        # Seek to start of trim window if provided
-        if start_time is not None and start_time > 0:
-            cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+        # Frame-based seeking — more reliable than POS_MSEC across codecs/containers
+        _start_fr = int(start_time * _fps) if (start_time and start_time > 0) else 0
+        _end_fr   = int(end_time   * _fps) if end_time is not None else None
+
+        if _start_fr > 0:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, _start_fr)
 
         frames, lms = [], []
+        _cur_fr = _start_fr
 
         with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
-                # Stop at end of trim window if provided
-                if end_time is not None and cap.get(cv2.CAP_PROP_POS_MSEC) > end_time * 1000:
+                if _end_fr is not None and _cur_fr >= _end_fr:
                     break
 
                 ret, frame = cap.read()
                 if not ret:
                     break
+                _cur_fr += 1
                 
                 res = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 if res.pose_landmarks:
