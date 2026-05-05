@@ -157,8 +157,27 @@ class StackingEnsembleClassifier:
                 self.xgb_model.load_model(self.models / "battingedge_V9_5_xgboost_best.json")
                 self.rf_model = joblib.load(self.models / "battingedge_V9_5_random_forest_best.pkl")
                 self.meta_model = joblib.load(self.models / "battingedge_V9_5_meta_model.pkl")
-                if hasattr(self.meta_model, 'multi_class'):
-                    delattr(self.meta_model, 'multi_class')
+                # Patch deprecated/removed sklearn attributes so predict works on scikit-learn >=1.7
+                # 'multi_class' was removed in sklearn 1.7; 'l1_ratio' default changed — only remove known removed ones
+                _deprecated_lr_attrs = ['multi_class']
+                for _attr in _deprecated_lr_attrs:
+                    if hasattr(self.meta_model, _attr):
+                        try:
+                            delattr(self.meta_model, _attr)
+                        except AttributeError:
+                            pass
+                # Smoke-test the meta model so we catch compat errors at startup, not at analysis time
+                import sklearn
+                _skl_ver = tuple(int(x) for x in sklearn.__version__.split('.')[:2])
+                if _skl_ver >= (1, 7) and hasattr(self.meta_model, '__dict__'):
+                    _n_classes = len(self.classes) if hasattr(self.classes, '__len__') else 5
+                    _dummy = np.zeros((1, _n_classes * 3))
+                    try:
+                        self.meta_model.predict_proba(_dummy)
+                    except Exception as _smoke_err:
+                        logger.warning(f"⚠️ Meta-model smoke test failed ({_smoke_err}); disabling ensemble.")
+                        self.meta_model = None
+                        raise RuntimeError("meta_model incompatible") from _smoke_err
                 self.is_ensemble = True
                 logger.info("✅ Ensemble Loaded")
             except:
@@ -275,7 +294,15 @@ class StackingEnsembleClassifier:
             if self.is_ensemble:
                 p_xgb = self.xgb_model.predict_proba(X.reshape(1, 5350))[0]
                 p_rf = self.rf_model.predict_proba(X.reshape(1, 5350))[0]
-                final = self.meta_model.predict_proba(np.hstack([p_lstm, p_xgb, p_rf]).reshape(1, -1))[0]
+                if self.meta_model is not None:
+                    try:
+                        final = self.meta_model.predict_proba(np.hstack([p_lstm, p_xgb, p_rf]).reshape(1, -1))[0]
+                    except Exception as _meta_err:
+                        logger.warning(f"Meta-model predict failed ({_meta_err}); falling back to weighted average.")
+                        self.meta_model = None  # disable for future calls
+                        final = 0.4 * p_lstm + 0.3 * p_xgb + 0.3 * p_rf
+                else:
+                    final = 0.4 * p_lstm + 0.3 * p_xgb + 0.3 * p_rf
             else:
                 final = p_lstm
                 
