@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,16 +8,21 @@ import { useAuth } from '../context/AuthContext';
 const GOOGLE_CLIENT_ID = '704836746742-5ekd8ctbsffpa1mvio762u4srve43g3n.apps.googleusercontent.com';
 
 // ── Google GSI loader ─────────────────────────────────────────────────────────
-let gsiLoaded = false;
-const loadGSI = () => new Promise((resolve) => {
-  if (gsiLoaded || window.google) { resolve(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client';
-  s.async = true;
-  s.defer = true;
-  s.onload = () => { gsiLoaded = true; resolve(); };
-  document.head.appendChild(s);
-});
+let gsiPromise = null;
+const loadGSI = () => {
+  if (window.google) return Promise.resolve();
+  if (!gsiPromise) {
+    gsiPromise = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = resolve;
+      document.head.appendChild(s);
+    });
+  }
+  return gsiPromise;
+};
 
 // ── Shared input ──────────────────────────────────────────────────────────────
 const Input = ({ icon: Icon, rightIcon, onRightClick, ...props }) => (
@@ -113,12 +118,12 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login' }) => {
 
   const reset = () => { setName(''); setEmail(''); setPassword(''); setError(''); };
 
-  const handleSuccess = (token, user) => {
+  const handleSuccess = useCallback((token, user) => {
     login(token, user);
     toast.success(`Welcome${user.full_name ? ', ' + user.full_name.split(' ')[0] : ''}!`);
     onClose();
     reset();
-  };
+  }, [login, onClose]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
