@@ -206,8 +206,10 @@ def merge_results(ml_result, groq_result):
         return result
 
     # ── No cricket shot visible ────────────────────────────────────────────
-    # Only override Groq's rejection if ML is >= 50% confident.
+    # Groq's rejection is only trusted when groq_confidence is "high".
+    # If ML is >= 25% confident, trust ML over Groq's rejection regardless.
     # The ML model always classifies into one of 5 shots with no "none" class.
+    groq_confidence = groq_result.get('groq_confidence', '').lower()
     if not groq_result.get('cricket_shot_detected', True):
         ml_conf = ml_result.get('confidence', 0)
         if isinstance(ml_conf, str):
@@ -215,13 +217,14 @@ def merge_results(ml_result, groq_result):
         elif ml_conf > 1:          # already a percentage like 64.8
             ml_conf = ml_conf / 100
 
-        if ml_conf >= 0.50:
-            # ML is highly confident — use ML result, flag Groq as unverified
+        if ml_conf >= 0.25:
+            # ML has enough confidence — use ML result, flag Groq disagreement
             result = copy.deepcopy(ml_result)
             fa = result.get('form_analysis', {})
             fa['groq_available']      = True
             fa['ai_verified']         = False
             fa['ai_validation_label'] = 'AI Assisted'
+            fa['note']     = 'AI Vision uncertain — ML model prediction used'
             fa['bat_warning'] = (
                 'AI Vision could not confirm shot in frames — result based on pose analysis'
             )
@@ -245,6 +248,8 @@ def merge_results(ml_result, groq_result):
     enhanced   = round(ml_score * 0.6 + groq_score * 0.4)
 
     # ── Shot agreement ─────────────────────────────────────────────────────
+    # Groq only overrides ML verification when groq_confidence is "high" —
+    # prevents low-movement shots (e.g. defensive) from being incorrectly rejected.
     ml_shot   = _normalize_shot(result.get('prediction', ''))
     groq_shot = (
         _normalize_shot(groq_result.get('predicted_shot', ''))
@@ -252,7 +257,10 @@ def merge_results(ml_result, groq_result):
         .replace('defensive',      'defense')
     )
     ml_norm = ml_shot.replace('_', ' ')
-    ai_verified = ml_norm == groq_shot or ml_norm in groq_shot or groq_shot in ml_norm
+    shots_agree = ml_norm == groq_shot or ml_norm in groq_shot or groq_shot in ml_norm
+    # Only mark as AI-verified when Groq is high-confidence AND shots agree.
+    # If Groq confidence is not "high", treat as AI Assisted regardless of shot match.
+    ai_verified = shots_agree and groq_confidence == 'high'
     # Note: ML prediction is never overridden — Groq shot names don't match ML class labels
     # (e.g. Groq returns "defensive shot" / "straight drive" which aren't ML classes).
     # Disagreement is flagged via ai_verified=False; ML label is always the one shown.
