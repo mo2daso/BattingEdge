@@ -92,7 +92,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
   // ── File handling ──────────────────────────────────────────────────────────
   const acceptFile = (f) => {
     if (!f) return;
-    if (f.size > 150 * 1024 * 1024) { toast.error('File too large. Max 150MB.'); return; }
+    if (f.size > 100 * 1024 * 1024) { toast.error('File too large. Max 100MB.'); return; }
     setFile(f);
     setStage('idle');
     setErrMsg('');
@@ -333,7 +333,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
                           <Upload size={32} className="text-gray-500 group-hover:text-neon-blue transition-colors" />
                         </div>
                         <h3 className="text-xl font-display font-bold text-white mb-2">Drop your video here</h3>
-                        <p className="text-gray-500 text-sm max-w-xs mb-4">MP4, MOV, AVI, WebM — up to 150MB.</p>
+                        <p className="text-gray-500 text-sm max-w-xs mb-4">MP4, MOV, AVI, WebM — up to 100MB.</p>
 
                         <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl p-4 text-left max-w-xs mb-3">
                           <AlertCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />

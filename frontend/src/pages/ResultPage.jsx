@@ -8,7 +8,7 @@ import {
   Lightbulb, MessageSquare, ShieldCheck, AlertTriangle, ArrowRight,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import { getResult, getPdfUrl, getOverlayUrl, saveToHistory, fetchHistoryFromBackend } from '../utils/api';
+import { getResult, getPdfUrl, getOverlayUrl, saveToHistory } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 // ── Grade & level helpers ─────────────────────────────────────────────────────

@@ -3,7 +3,6 @@ import sys
 import uuid
 import copy
 import logging
-import ipaddress
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -80,28 +79,6 @@ app = FastAPI(
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(groq_router, tags=["AI / Groq"])
 
-_PRIVATE_NETS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-]
-
-def _is_allowed_origin(origin: str | None) -> bool:
-    """Allow localhost and private LAN origins only."""
-    if not origin:
-        return True
-    for prefix in ("http://localhost", "https://localhost",
-                   "http://127.0.0.1", "https://127.0.0.1"):
-        if origin.startswith(prefix):
-            return True
-    try:
-        host = origin.split("://", 1)[1].split(":")[0]
-        ip = ipaddress.ip_address(host)
-        return any(ip in net for net in _PRIVATE_NETS)
-    except Exception:
-        return False
-
 # Upload rate limiter: 10 uploads per minute per IP
 _upload_log: dict[str, list] = defaultdict(list)
 _RATE_LIMIT, _RATE_WINDOW = 10, 60
@@ -132,7 +109,7 @@ def _looks_like_video(header: bytes) -> bool:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # actual check done in _is_allowed_origin per-request
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

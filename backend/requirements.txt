@@ -1,0 +1,45 @@
+# ============================================================
+# BattingEdge Backend — Python Dependencies
+# Generated from working local venv (Python 3.x)
+# Install: pip install -r requirements.txt
+# ============================================================
+
+# ── Web framework ──────────────────────────────────────────
+fastapi==0.121.1
+uvicorn==0.38.0
+python-multipart==0.0.6
+aiofiles==25.1.0
+starlette==0.49.3
+
+# ── Auth / security ────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==5.0.0
+cryptography==46.0.3
+
+# ── Config & HTTP ──────────────────────────────────────────
+python-dotenv==1.0.0
+httpx==0.28.1
+requests==2.32.5
+
+# ── Data validation ────────────────────────────────────────
+pydantic==2.12.4
+
+# ── AI / Groq Vision & Chatbot ────────────────────────────
+groq==1.2.0
+
+# ── ML inference (V9.5 model) ─────────────────────────────
+tensorflow==2.19.1
+keras==3.12.0
+scikit-learn==1.8.0
+xgboost==3.1.3
+numpy==1.26.4
+joblib==1.5.2
+h5py==3.15.1
+
+# ── Pose estimation & video ───────────────────────────────
+mediapipe==0.10.14
+opencv-python-headless==4.9.0.80
+
+# ── PDF report generation ─────────────────────────────────
+reportlab==4.4.5

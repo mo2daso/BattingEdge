@@ -127,7 +127,7 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
         
         # Update database (UNCHANGED)
         cursor.execute('''
-            UPDATE analyses 
+            UPDATE analyses
             SET shot_type = ?,
                 confidence = ?,
                 form_score = ?,
@@ -142,7 +142,7 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
             form_score,
             probs_json,
             checks_json,
-            str(overlay_path),
+            str(overlay_path) if overlay_path else None,
             'completed',
             video_id
         ))

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -46,7 +46,41 @@ const isGoogleAllowed = (
 );
 
 // ── Google button ─────────────────────────────────────────────────────────────
+// Uses renderButton() — reliable on any HTTPS domain in Google Cloud Console.
+// Does NOT use prompt()/One Tap, which gets suppressed after a few dismissals.
 const GoogleBtn = ({ onSuccess, label = 'Continue with Google' }) => {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isGoogleAllowed || !containerRef.current) return;
+    let active = true;
+    loadGSI().then(() => {
+      if (!active || !window.google || !containerRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (res) => {
+          try {
+            const data = await authGoogle(res.credential);
+            localStorage.setItem('be_token', data.access_token);
+            const user = await getMe();
+            onSuccess(data.access_token, user);
+          } catch (err) {
+            toast.error(err.response?.data?.detail || 'Google sign-in failed');
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(containerRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: containerRef.current.offsetWidth || 360,
+        text: label.toLowerCase().includes('up') ? 'signup_with' : 'signin_with',
+        logo_alignment: 'left',
+        shape: 'rectangular',
+      });
+    });
+    return () => { active = false; };
+  }, [onSuccess, label]);
+
   if (!isGoogleAllowed) {
     return (
       <p className="text-center text-xs text-gray-600 py-1">
@@ -56,49 +90,7 @@ const GoogleBtn = ({ onSuccess, label = 'Continue with Google' }) => {
     );
   }
 
-  const handleGoogle = async () => {
-    await loadGSI();
-    if (!window.google) { toast.error('Google Sign-In not available'); return; }
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (res) => {
-        try {
-          const data = await authGoogle(res.credential);
-          localStorage.setItem('be_token', data.access_token);
-          const user = await getMe();
-          onSuccess(data.access_token, user);
-        } catch (err) {
-          toast.error(err.response?.data?.detail || 'Google sign-in failed');
-        }
-      },
-    });
-    window.google.accounts.id.prompt((note) => {
-      if (note.isSkippedMoment() || note.isDismissedMoment()) {
-        // fallback: render button popup
-        const container = document.getElementById('g_id_onload_div');
-        if (container) window.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: '100%' });
-      }
-    });
-  };
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={handleGoogle}
-        className="w-full flex items-center justify-center gap-3 py-3 rounded-xl bg-white/5 border border-border-soft hover:bg-white/10 hover:border-white/20 transition-all text-sm font-medium text-white"
-      >
-        <svg width="18" height="18" viewBox="0 0 48 48">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        </svg>
-        {label}
-      </button>
-      <div id="g_id_onload_div" className="hidden" />
-    </>
-  );
+  return <div ref={containerRef} className="w-full flex justify-center" style={{ minHeight: 44 }} />;
 };
 
 // ── Main Modal ────────────────────────────────────────────────────────────────
