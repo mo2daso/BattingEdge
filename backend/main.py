@@ -25,7 +25,7 @@ try:
     import report as rpt
     import auth_models
     from auth_router  import router as auth_router
-    from groq_router  import router as groq_router
+    from groq_router  import router as groq_router, generate_coaching_commentary
     from groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
     from video_checks import check_motion, check_pose_completeness, auto_detect_trim
     import auth_utils as _auth_utils
@@ -35,7 +35,7 @@ except ImportError:
     import backend.report as rpt
     import backend.auth_models as auth_models
     from backend.auth_router  import router as auth_router
-    from backend.groq_router  import router as groq_router
+    from backend.groq_router  import router as groq_router, generate_coaching_commentary
     from backend.groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
     from backend.video_checks import check_motion, check_pose_completeness, auto_detect_trim
     import backend.auth_utils as _auth_utils
@@ -236,6 +236,19 @@ def process_video_task(video_id: str, input_path: Path):
         except Exception as _groq_exc:
             logger.warning(f"[api/analyze]    ⚠️ Groq Vision failed (using ML result): {_groq_exc}")
 
+        # Step 1c: Coaching commentary via LLaMA (non-blocking — empty string on failure)
+        _context = {}
+        if _meta.get('bowling_type'):
+            _context['bowling_type'] = _meta['bowling_type']
+        if _meta.get('ball_pitch'):
+            _context['ball_pitch'] = _meta['ball_pitch']
+        _commentary = generate_coaching_commentary(result, context=_context or None)
+        if _commentary:
+            result.setdefault('form_analysis', {})['coaching_commentary'] = _commentary
+            logger.info("[api/analyze]    ✅ Coaching commentary generated")
+        else:
+            logger.info("[api/analyze]    ℹ️ Coaching commentary skipped (no key or empty)")
+
         # Step 2: Overlay generation (progress 60 → 85)
         db.update_progress(video_id, 60)
         logger.info(f"[api/analyze] Step 2/4: Creating overlay video...")
@@ -344,8 +357,10 @@ async def server_info(request: Request):
 async def upload_video(
     request: Request,
     file: UploadFile = File(...),
-    start_time: float = Form(default=None),
-    end_time:   float = Form(default=None),
+    start_time:   float = Form(default=None),
+    end_time:     float = Form(default=None),
+    bowling_type: str   = Form(default=None),
+    ball_pitch:   str   = Form(default=None),
 ):
     """Upload endpoint with rate limiting and file validation."""
     client_ip = request.client.host if request.client else "unknown"
@@ -382,7 +397,12 @@ async def upload_video(
 
             await out_file.write(content)
         
-        db.save_initial_upload(video_id, file.filename, file_path, start_time=start_time, end_time=end_time)
+        db.save_initial_upload(
+            video_id, file.filename, file_path,
+            start_time=start_time, end_time=end_time,
+            bowling_type=bowling_type or None,
+            ball_pitch=ball_pitch or None,
+        )
 
         logger.info(f"✅ Upload successful: {video_id} ({file.filename}, {file_size_mb:.1f}MB)")
         

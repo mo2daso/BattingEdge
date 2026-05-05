@@ -56,6 +56,21 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+        # Schema migration: add delivery context for coaching commentary
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN bowling_type TEXT')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added bowling_type column")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN ball_pitch TEXT')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added ball_pitch column")
+        except sqlite3.OperationalError:
+            pass
+
         # NOTE: users table is managed exclusively by auth_models.init_users_table()
         # which runs on startup after init_db(). Do NOT create users table here —
         # the correct schema (nullable password_hash for Google OAuth) lives in auth_models.
@@ -69,15 +84,17 @@ def init_db():
         raise
 
 def save_initial_upload(video_id: str, filename: str, filepath: Path,
-                        start_time: float = None, end_time: float = None):
-    """Save initial upload record with optional trim window."""
+                        start_time: float = None, end_time: float = None,
+                        bowling_type: str = None, ball_pitch: str = None):
+    """Save initial upload record with optional trim window and delivery context."""
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
 
     try:
         cursor.execute('''
-            INSERT INTO analyses (video_id, filename, original_path, status, created_at, start_time, end_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO analyses (video_id, filename, original_path, status, created_at,
+                                  start_time, end_time, bowling_type, ball_pitch)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             video_id,
             filename,
@@ -86,6 +103,8 @@ def save_initial_upload(video_id: str, filename: str, filepath: Path,
             datetime.now().isoformat(),
             start_time,
             end_time,
+            bowling_type,
+            ball_pitch,
         ))
         
         conn.commit()
