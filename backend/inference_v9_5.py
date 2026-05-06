@@ -1,5 +1,7 @@
 import os
 import sys
+import subprocess
+import shutil
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -359,10 +361,13 @@ class StackingEnsembleClassifier:
         # Reopen fresh — cap.set(POS_FRAMES, 0) after read() is unreliable on Windows.
         cap = cv2.VideoCapture(str(input_path))
 
-        # Try avc1 (H.264, best browser compat) → mp4v → XVID as fallbacks.
+        # Write frames to a temp file using mp4v (works everywhere).
+        # We'll re-encode to H.264 with FFmpeg afterwards for browser compat.
+        output_path = Path(output_path)
+        tmp_path = output_path.with_suffix('.tmp.mp4')
         out = None
-        for _fourcc_str in ('avc1', 'mp4v', 'XVID'):
-            _w = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*_fourcc_str), fps, (w, h))
+        for _fourcc_str in ('mp4v', 'XVID'):
+            _w = cv2.VideoWriter(str(tmp_path), cv2.VideoWriter_fourcc(*_fourcc_str), fps, (w, h))
             if _w.isOpened():
                 out = _w
                 break
@@ -509,7 +514,40 @@ class StackingEnsembleClassifier:
                     y_offset += line_height
                 
                 out.write(frame)
-        
+
         cap.release()
         out.release()
+
+        # Validate the written file
+        if not tmp_path.exists() or tmp_path.stat().st_size < 1000:
+            tmp_path.unlink(missing_ok=True)
+            return False
+
+        # Re-encode to H.264 with FFmpeg for universal browser compatibility.
+        # FFmpeg is almost always available on Linux servers. Falls back to mp4v if not.
+        try:
+            result = subprocess.run(
+                [
+                    'ffmpeg', '-y', '-i', str(tmp_path),
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    '-movflags', '+faststart',
+                    str(output_path)
+                ],
+                capture_output=True,
+                timeout=120,
+            )
+            if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 1000:
+                tmp_path.unlink(missing_ok=True)
+                logger.info(f"[overlay] FFmpeg re-encode OK → {output_path.name}")
+                return True
+            logger.warning(f"[overlay] FFmpeg failed (rc={result.returncode}): {result.stderr[-300:]}")
+        except FileNotFoundError:
+            logger.warning("[overlay] FFmpeg not found — serving mp4v directly")
+        except subprocess.TimeoutExpired:
+            logger.warning("[overlay] FFmpeg timed out — serving mp4v directly")
+        except Exception as e:
+            logger.warning(f"[overlay] FFmpeg error: {e}")
+
+        # FFmpeg unavailable or failed — use mp4v file as-is
+        shutil.move(str(tmp_path), str(output_path))
         return True
