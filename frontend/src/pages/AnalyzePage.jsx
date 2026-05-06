@@ -9,8 +9,15 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import CameraModal from '../components/CameraModal';
 import VideoTrimmer from '../components/VideoTrimmer';
-import { uploadVideo, triggerAnalysis, getResult, saveToHistory } from '../utils/api';
+import api, { triggerAnalysis, getResult, saveToHistory } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+
+// ── Bowling context options ───────────────────────────────────────────────────
+const BOWLING_OPTIONS = [
+  { label: 'Fast Bowling', value: 'fast'    },
+  { label: 'Spin Bowling', value: 'spin'    },
+  { label: 'Skip',         value: 'unknown' },
+];
 
 // ── Progress Steps ─────────────────────────────────────────────────────────────
 const STEPS = [
@@ -39,7 +46,7 @@ const ProgressStepper = ({ progress, status }) => {
           transition={{ duration: 0.8, ease: 'easeOut' }}
         />
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="flex justify-between">
         {STEPS.map((s, i) => {
           const done    = i < activeStep;
           const active  = i === activeStep;
@@ -88,6 +95,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [analysisStatus,   setAnalysisStatus]   = useState('');
   const [errMsg,           setErrMsg]           = useState('');
   const [camOpen,          setCamOpen]          = useState(false);
+  const [bowlingContext,   setBowlingContext]   = useState('unknown');
 
   // ── File handling ──────────────────────────────────────────────────────────
   const acceptFile = (f) => {
@@ -145,7 +153,17 @@ const AnalyzePage = ({ onOpenAuth }) => {
     try {
       setStage('uploading');
       setUploadPct(0);
-      const { video_id } = await uploadVideo(fileToUpload, setUploadPct, startTime, endTime);
+      // Build FormData manually so we can append bowling_context as a query param
+      const fd = new FormData();
+      fd.append('file', fileToUpload);
+      if (startTime !== null && startTime > 0) fd.append('start_time', String(startTime));
+      if (endTime   !== null)                  fd.append('end_time',   String(endTime));
+      const uploadUrl = `/api/upload?bowling_context=${encodeURIComponent(bowlingContext)}`;
+      const uploadRes = await api.post(uploadUrl, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => setUploadPct(Math.round((e.loaded * 100) / e.total)),
+      });
+      const { video_id } = uploadRes.data;
       setStage('analyzing');
       setAnalysisProgress(5);
       await triggerAnalysis(video_id);
@@ -174,7 +192,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
   if (freeUsed) {
     return (
-      <div className="min-h-screen bg-jet-black text-white">
+      <div className="min-h-screen bg-jet-black text-white overflow-x-hidden">
         <Navbar onOpenAuth={onOpenAuth} />
         <main className="max-w-lg mx-auto px-4 pt-40 pb-20 text-center">
           <div className="w-20 h-20 rounded-2xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center mx-auto mb-6">
@@ -203,7 +221,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
   }
 
   return (
-    <div className="min-h-screen bg-jet-black text-white">
+    <div className="min-h-screen bg-jet-black text-white overflow-x-hidden">
       <Navbar onOpenAuth={onOpenAuth} />
       <CameraModal isOpen={camOpen} onClose={() => setCamOpen(false)} onVideoReady={handleCameraVideo} />
 
@@ -259,7 +277,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
           {!isProcessing && (
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               {/* Tabs */}
-              <div className="flex gap-1 bg-surface rounded-2xl p-1.5 mb-6">
+              <div className="grid grid-cols-2 gap-1 bg-surface rounded-2xl p-1.5 mb-6">
                 {[
                   { id: 'upload', label: 'Upload Video', icon: Upload },
                   { id: 'camera', label: 'Use Camera',  icon: Camera },
@@ -281,7 +299,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-6 sm:p-10 rounded-3xl bg-surface-2 border border-border-dim text-center"
+                  className="p-6 sm:p-10 rounded-3xl bg-surface-2 border border-border-dim text-center overflow-hidden"
                 >
                   <div className="w-20 h-20 rounded-2xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center mx-auto mb-6">
                     <Camera size={36} className="text-neon-blue" />
@@ -314,6 +332,29 @@ const AnalyzePage = ({ onOpenAuth }) => {
               {/* ── UPLOAD TAB ── */}
               {tab === 'upload' && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+
+                  {/* Bowling context selector */}
+                  <div className="rounded-2xl border border-border-dim p-4 mb-4"
+                       style={{ background: 'var(--surface-2)' }}>
+                    <p className="text-sm text-gray-400 mb-3">
+                      What were you practicing against? <span className="text-gray-600">(optional)</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {BOWLING_OPTIONS.map(({ label, value }) => (
+                        <button
+                          key={value}
+                          onClick={() => setBowlingContext(value)}
+                          className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                            bowlingContext === value
+                              ? 'bg-[#00d4ff] text-black'
+                              : 'border border-[#00d4ff] text-[#00d4ff] bg-transparent hover:bg-[#00d4ff]/10'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Drop zone (shown when no file yet) */}
                   {!file && (

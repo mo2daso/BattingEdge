@@ -10,10 +10,11 @@ import { Scissors } from 'lucide-react';
  *   onSkip          — () => void  (upload full video as-is)
  */
 const VideoTrimmer = ({ file, onTrimComplete, onSkip }) => {
-  const [duration,  setDuration]  = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [endTime,   setEndTime]   = useState(0);
-  const [videoUrl,  setVideoUrl]  = useState('');
+  const [duration,   setDuration]  = useState(0);
+  const [startTime,  setStartTime] = useState(0);
+  const [endTime,    setEndTime]   = useState(0);
+  const [videoUrl,   setVideoUrl]  = useState('');
+  const [videoError, setVideoError] = useState(false);
 
   const videoRef    = useRef(null);
   const timelineRef = useRef(null);
@@ -30,6 +31,7 @@ const VideoTrimmer = ({ file, onTrimComplete, onSkip }) => {
   // Build object URL for the video preview
   useEffect(() => {
     if (!file) return;
+    setVideoError(false);
     const url = URL.createObjectURL(file);
     setVideoUrl(url);
 
@@ -132,14 +134,36 @@ const VideoTrimmer = ({ file, onTrimComplete, onSkip }) => {
       </div>
 
       {/* ── Video preview ── */}
-      <div className="bg-black">
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          className="w-full max-h-48 object-contain"
-          muted
-          playsInline
-        />
+      <div className="bg-black relative" style={{ minHeight: '80px' }}>
+        {!videoError ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full max-h-48 object-contain"
+            muted
+            playsInline
+            preload="metadata"
+            onError={() => setVideoError(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-center px-4">
+            <p className="text-sm text-gray-400">Preview unavailable</p>
+            <p className="text-xs text-gray-500">
+              This format may not be supported in browser — the video will still be sent for analysis
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Broadcast video warning */}
+      <div className="px-4 pt-3 pb-0">
+        <div className="flex items-start gap-2 bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-3 text-left">
+          <span className="text-yellow-400 text-xs leading-tight flex-shrink-0 mt-0.5">⚠️</span>
+          <p className="text-xs text-yellow-200/70 leading-relaxed">
+            <span className="text-yellow-300 font-semibold">Professional / broadcast videos may fail — </span>
+            the AI needs a single player, filmed side-on at close range. TV footage with wide angles or multiple players will not analyse correctly.
+          </p>
+        </div>
       </div>
 
       <div className="p-4 space-y-4">

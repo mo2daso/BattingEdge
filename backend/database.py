@@ -71,6 +71,35 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+        # Schema migration: bowling_context, camera_context, feature_completeness, groq_commentary
+        try:
+            cursor.execute("ALTER TABLE analyses ADD COLUMN bowling_context TEXT DEFAULT 'unknown'")
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added bowling_context column")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE analyses ADD COLUMN camera_context TEXT DEFAULT 'unknown'")
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added camera_context column")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN feature_completeness REAL DEFAULT 1.0')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added feature_completeness column")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE analyses ADD COLUMN groq_commentary TEXT DEFAULT NULL')
+            conn.commit()
+            logger.info("✅ Migrated analyses table: added groq_commentary column")
+        except sqlite3.OperationalError:
+            pass
+
         # NOTE: users table is managed exclusively by auth_models.init_users_table()
         # which runs on startup after init_db(). Do NOT create users table here —
         # the correct schema (nullable password_hash for Google OAuth) lives in auth_models.
@@ -85,7 +114,8 @@ def init_db():
 
 def save_initial_upload(video_id: str, filename: str, filepath: Path,
                         start_time: float = None, end_time: float = None,
-                        bowling_type: str = None, ball_pitch: str = None):
+                        bowling_type: str = None, ball_pitch: str = None,
+                        bowling_context: str = None, camera_context: str = None):
     """Save initial upload record with optional trim window and delivery context."""
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
@@ -93,8 +123,9 @@ def save_initial_upload(video_id: str, filename: str, filepath: Path,
     try:
         cursor.execute('''
             INSERT INTO analyses (video_id, filename, original_path, status, created_at,
-                                  start_time, end_time, bowling_type, ball_pitch)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  start_time, end_time, bowling_type, ball_pitch,
+                                  bowling_context, camera_context)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             video_id,
             filename,
@@ -105,6 +136,8 @@ def save_initial_upload(video_id: str, filename: str, filepath: Path,
             end_time,
             bowling_type,
             ball_pitch,
+            bowling_context,
+            camera_context,
         ))
         
         conn.commit()
@@ -127,7 +160,7 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
     try:
         # Extract data (YOUR LOGIC - MOSTLY UNCHANGED)
         shot_type = result_data.get('prediction', 'unknown')
-        confidence = float(result_data.get('confidence', 0.0))
+        confidence = float(result_data.get('confidence') or 0.0)
         all_probs = result_data.get('all_probabilities', {})
         
         # Get form analysis (FLAT structure from inference.py)
@@ -138,22 +171,35 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
             logger.warning("⚠️ Nested form_analysis detected - fixing...")
             form_data = form_data['form_analysis']
         
-        form_score = int(form_data.get('overall_score', 0))
-        
+        form_score = int(form_data.get('overall_score') or 0)
+
+        # New context/quality fields from Task C predict_video() result
+        bowling_context      = result_data.get('bowling_context')
+        camera_context       = result_data.get('camera_context')
+        feature_completeness = result_data.get('feature_completeness')
+
+        # groq_commentary lives inside form_analysis (set by Task C)
+        groq_raw = form_data.get('groq_commentary')
+        groq_json = json.dumps(groq_raw, ensure_ascii=False) if groq_raw is not None else None
+
         # Serialize for storage (UNCHANGED)
         checks_json = json.dumps(form_data, ensure_ascii=False)
-        probs_json = json.dumps(all_probs, ensure_ascii=False)
-        
-        # Update database (UNCHANGED)
+        probs_json  = json.dumps(all_probs, ensure_ascii=False)
+
+        # Update database
         cursor.execute('''
             UPDATE analyses
-            SET shot_type = ?,
-                confidence = ?,
-                form_score = ?,
-                all_probabilities = ?,
-                form_checks = ?,
-                overlay_path = ?,
-                status = ?
+            SET shot_type            = ?,
+                confidence           = ?,
+                form_score           = ?,
+                all_probabilities    = ?,
+                form_checks          = ?,
+                overlay_path         = ?,
+                status               = ?,
+                bowling_context      = COALESCE(?, bowling_context),
+                camera_context       = COALESCE(?, camera_context),
+                feature_completeness = COALESCE(?, feature_completeness),
+                groq_commentary      = ?
             WHERE video_id = ?
         ''', (
             shot_type,
@@ -163,7 +209,11 @@ def update_analysis_result(video_id: str, result_data: dict, overlay_path: Path)
             checks_json,
             str(overlay_path) if overlay_path else None,
             'completed',
-            video_id
+            bowling_context,
+            camera_context,
+            feature_completeness,
+            groq_json,
+            video_id,
         ))
         
         conn.commit()

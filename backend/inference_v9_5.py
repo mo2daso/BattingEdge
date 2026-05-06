@@ -60,7 +60,9 @@ class BiomechanicsAnalyzer:
     def __init__(self):
         self.height_scale = HEIGHT_SCALE
 
-    def analyze(self, landmarks_seq, shot_type):
+    def analyze(self, landmarks_seq, shot_type,
+                bowling_context="default", camera_context="unknown",
+                feature_completeness=1.0):
         if not landmarks_seq or len(landmarks_seq) < 3:
             return self._get_empty_analysis("Insufficient data")
         
@@ -97,31 +99,39 @@ class BiomechanicsAnalyzer:
         except:
             pass
 
-        # Call new analyze_shot
-        grading = ShotRules.analyze_shot(metrics, shot_type)
-        
-        # Handle new ShotRules output format
+        # Call new analyze_shot — pass bowling/camera context from Task A
+        grading = ShotRules.analyze_shot(
+            metrics, shot_type, bowling_context, camera_context, feature_completeness
+        )
+
+        # Build check dicts — include Task A's new fields
         checks = []
         for check_item in grading.get('checks', []):
             checks.append({
-                "name": check_item.get('name', 'Metric'),
-                "value": check_item.get('value', 'N/A'),
-                "ideal_range": check_item.get('ideal_range', 'N/A'),
-                "status": check_item.get('status', 'Unknown'),
-                "is_error": check_item.get('is_error', False),
-                "advice": check_item.get('advice', 'Keep practicing.')
+                "name":             check_item.get('name', 'Metric'),
+                "value":            check_item.get('value', 'N/A'),
+                "ideal_range":      check_item.get('ideal_range', 'N/A'),
+                "status":           check_item.get('status', 'Unknown'),
+                "is_error":         check_item.get('is_error', False),
+                "advice":           check_item.get('advice', 'Keep practicing.'),
+                "bowling_adjusted": check_item.get('bowling_adjusted', False),
+                "research_source":  check_item.get('research_source', ''),
+                "camera_warning":   check_item.get('camera_warning', False),
             })
 
         return {
-            "overall_score": grading.get('overall_score', 70),
-            "performance_level": grading.get('performance_level', 'Good'),
-            "grade": grading.get('grade', 'B'),
-            "checks": checks,
-            "key_improvements": grading.get('key_improvements', []),
-            "strengths": grading.get('strengths', []),
-            "summary": grading.get('summary', f"Analysis for {shot_type}"),
-            "recommended_drills": grading.get('recommended_drills', []),
-            "detailed_metrics": metrics
+            "overall_score":             grading.get('overall_score', 70),
+            "performance_level":         grading.get('performance_level', 'Good'),
+            "grade":                     grading.get('grade', 'B'),
+            "checks":                    checks,
+            "key_improvements":          grading.get('key_improvements', []),
+            "strengths":                 grading.get('strengths', []),
+            "summary":                   grading.get('summary', f"Analysis for {shot_type}"),
+            "recommended_drills":        grading.get('recommended_drills', []),
+            "detailed_metrics":          metrics,
+            "shot_bowling_compatibility":grading.get('shot_bowling_compatibility', 'common'),
+            "context_note":              grading.get('context_note', ''),
+            "bowling_context_applied":   grading.get('bowling_context_applied', 'unknown'),
         }
 
     def _get_empty_analysis(self, reason):
@@ -254,8 +264,12 @@ class StackingEnsembleClassifier:
                         frames.append(np.array(row + [0]*8))
         
         cap.release()
+        total_frames_attempted = _cur_fr - _start_fr
+        valid_frame_count = len(lms)
+        feature_completeness = valid_frame_count / max(total_frames_attempted, 1)
+
         if len(frames) < 10:
-            return None, None
+            return None, None, feature_completeness
         
         # YOUR TEMPORAL INTERPOLATION LOGIC - UNCHANGED
         frames = np.array(frames)
@@ -275,15 +289,27 @@ class StackingEnsembleClassifier:
         step = max(1, len(lms) // target_len)
         sampled_lms = lms[::step][:target_len]
         
-        return resampled, sampled_lms
+        return resampled, sampled_lms, feature_completeness
 
-    def predict_video(self, video_path, start_time=None, end_time=None):
-        """YOUR PREDICTION LOGIC - UNCHANGED"""
+    def predict_video(self, video_path, bowling_context="default",
+                      camera_context="unknown", start_time=None, end_time=None):
+        """YOUR PREDICTION LOGIC - UNCHANGED (bowling/camera context added)"""
         if not Path(video_path).exists():
             return {"error": "File not found"}
 
-        features, lms = self.extract_features(video_path, start_time=start_time, end_time=end_time)
+        features, lms, feature_completeness = self.extract_features(
+            video_path, start_time=start_time, end_time=end_time
+        )
         if features is None:
+            if feature_completeness < 0.60:
+                return {
+                    "error": "insufficient_landmarks",
+                    "message": (
+                        "Less than 60% of body landmarks detected. "
+                        "Ensure your full body is visible and lighting is good."
+                    ),
+                    "feature_completeness": feature_completeness,
+                }
             return {"error": "No pose detected"}
         
         try:
@@ -310,14 +336,60 @@ class StackingEnsembleClassifier:
             shot = self.classes[idx]
             conf = float(final[idx] * 100)
             
-            form = self.analyzer.analyze(lms, shot)
-            
+            form = self.analyzer.analyze(
+                lms, shot, bowling_context, camera_context, feature_completeness
+            )
+
+            # Gate 1 failure: ShotRules couldn't score (too few landmarks)
+            if form.get('status') == 'insufficient_data':
+                return {
+                    "error": form.get(
+                        'message',
+                        'Too few body landmarks detected. Ensure your full body is '
+                        'visible and well-lit, filmed side-on at close range.'
+                    ),
+                    "feature_completeness": feature_completeness,
+                }
+
+            # Groq coaching commentary (non-critical — never crashes predict_video)
+            try:
+                from groq_router import generate_coaching_commentary
+                import asyncio
+                # Use new_event_loop for safety inside sync thread-pool tasks on Windows
+                _loop = asyncio.new_event_loop()
+                try:
+                    groq_result = _loop.run_until_complete(
+                        generate_coaching_commentary(
+                            analysis_result=form,
+                            bowling_context=bowling_context,
+                            camera_context=camera_context,
+                            feature_completeness=feature_completeness,
+                        )
+                    )
+                finally:
+                    _loop.close()
+                if groq_result:
+                    form['groq_commentary'] = groq_result
+            except Exception as e:
+                logger.warning(f"Groq commentary failed (non-critical): {e}")
+                form['groq_commentary'] = None
+
+            landmarks_quality = (
+                'high'   if feature_completeness > 0.80 else
+                'medium' if feature_completeness > 0.60 else
+                'low'
+            )
+
             return {
-                "prediction": shot,
-                "confidence": conf,
-                "all_probabilities": {self.classes[i]: float(final[i]*100) for i in range(len(final))},
-                "form_analysis": form,
-                "filename": Path(video_path).name
+                "prediction":          shot,
+                "confidence":          conf,
+                "all_probabilities":   {self.classes[i]: float(final[i]*100) for i in range(len(final))},
+                "form_analysis":       form,
+                "filename":            Path(video_path).name,
+                "feature_completeness": feature_completeness,
+                "landmarks_quality":   landmarks_quality,
+                "bowling_context":     bowling_context,
+                "camera_context":      camera_context,
             }
         except Exception as e:
             logger.error(f"Predict Error: {e}")

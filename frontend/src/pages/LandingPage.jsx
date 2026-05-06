@@ -88,7 +88,7 @@ const LandingPage = ({ onOpenAuth }) => {
   }, [location.state]);
 
   return (
-    <div className="min-h-screen bg-jet-black text-white">
+    <div className="min-h-screen bg-jet-black text-white overflow-x-hidden">
       <Navbar onOpenAuth={onOpenAuth} />
 
       {/* ═══ HERO ════════════════════════════════════════════════════════════ */}
@@ -283,10 +283,10 @@ const LandingPage = ({ onOpenAuth }) => {
             <p className="text-gray-400 max-w-xl mx-auto">Each shot has its own biomechanical ruleset derived from ECB Level 3 coaching manuals.</p>
           </FadeUp>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
             {SHOTS.map((s, i) => (
               <FadeUp key={s.name} delay={i * 0.08}>
-                <div className={`p-6 rounded-2xl bg-surface-2 border border-border-dim card-hover group hover:border-${s.color}/20 h-full`}>
+                <div className={`p-6 rounded-2xl bg-surface-2 border border-border-dim card-hover group hover:border-${s.color}/20 h-full flex flex-col`}>
                   <div className="flex items-center gap-4 mb-4">
                     <span className="text-4xl">{s.icon}</span>
                     <div>
@@ -298,15 +298,6 @@ const LandingPage = ({ onOpenAuth }) => {
                 </div>
               </FadeUp>
             ))}
-
-            {/* CTA card */}
-            <FadeUp delay={0.45}>
-              <Link to="/analyze" className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-dashed border-neon-blue/20 hover:border-neon-blue/40 hover:bg-neon-blue/3 transition-all group h-full min-h-[160px]">
-                <Zap size={32} className="text-neon-blue mb-3 group-hover:scale-110 transition-transform" />
-                <span className="font-bold text-white text-sm mb-1">Analyze Your Shot</span>
-                <span className="text-gray-500 text-xs text-center">Upload a video to see which shot the AI classifies</span>
-              </Link>
-            </FadeUp>
           </div>
         </div>
       </section>

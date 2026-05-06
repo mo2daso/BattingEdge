@@ -5,7 +5,7 @@ import {
   ArrowLeft, Download, CheckCircle2, XCircle,
   ChevronDown, ChevronUp, FileText,
   Dumbbell, Target, Footprints, Repeat,
-  Lightbulb, MessageSquare, ShieldCheck, AlertTriangle, ArrowRight,
+  Lightbulb, MessageSquare, ShieldCheck, AlertTriangle, ArrowRight, Bot,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { getResult, getPdfUrl, getOverlayUrl, saveToHistory } from '../utils/api';
@@ -36,12 +36,10 @@ const drillIcon = (name = '') => {
   return <Dumbbell size={18} className="text-neon-blue" />;
 };
 
-const SHOT_LABELS = {
-  cover_drive: 'Cover Drive',
-  cut_shot:    'Cut Shot',
-  defense:     'Defense',
-  pull_shot:   'Pull Shot',
-  sweep_shot:  'Sweep Shot',
+const BOWLING_CONTEXT_LABELS = {
+  fast:    'Fast Bowling',
+  spin:    'Spin Bowling',
+  unknown: 'Unknown',
 };
 
 // ── Animated score counter ────────────────────────────────────────────────────
@@ -192,20 +190,29 @@ const ShotFacts = ({ shot }) => {
 
 // ── Check item (biomechanics) ─────────────────────────────────────────────────
 
-const CheckItem = ({ check }) => {
+const CheckItem = ({ check, bowlingContext }) => {
   const [open, setOpen] = useState(false);
-  const good = !check.is_error;
+  const good     = !check.is_error;
+  const ctxLabel = BOWLING_CONTEXT_LABELS[bowlingContext] || '';
   return (
     <div className="rounded-xl overflow-hidden transition-colors hover:bg-white/2">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between p-3.5 text-left">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {good
             ? <CheckCircle2 size={17} className="text-neon-green flex-shrink-0" />
             : <XCircle      size={17} className="text-red-400 flex-shrink-0" />
           }
           <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{check.name}</span>
+          {check.bowling_adjusted && ctxLabel && (
+            <span className="text-xs bg-[#00d4ff]/20 text-[#00d4ff] px-2 py-0.5 rounded-full">
+              Adjusted for {ctxLabel}
+            </span>
+          )}
+          {check.camera_warning && (
+            <span title="Camera angle may affect this reading" className="text-yellow-400 cursor-help text-xs">⚠️</span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${good ? 'text-neon-green bg-neon-green/10' : 'text-red-400 bg-red-400/10'}`}>
             {check.status}
           </span>
@@ -226,11 +233,79 @@ const CheckItem = ({ check }) => {
               </div>
               <p className="mt-2 leading-relaxed border-t border-border-dim pt-2 italic"
                  style={{ color: 'var(--text-muted)' }}>"{check.advice}"</p>
+              {check.research_source && (
+                <p className="text-xs text-gray-500 italic mt-1">{check.research_source}</p>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+};
+
+// ── Groq AI coaching section ──────────────────────────────────────────────────
+
+const PARA_ACCENTS = ['#00ff88', '#00d4ff', '#7c3aed'];
+
+const GroqCoachingSection = ({ commentary }) => {
+  if (!commentary) return null;
+  const {
+    headline,
+    coaching_paragraphs   = [],
+    quick_tips            = [],
+    pakistan_player_reference,
+    next_session_focus,
+  } = commentary;
+
+  return (
+    <motion.div
+      initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.22 }}
+      className="rounded-2xl border border-border-dim overflow-hidden mb-6"
+      style={{ background: 'var(--surface-2)' }}
+    >
+      <div className="px-5 py-4 border-b border-border-dim flex items-center gap-2">
+        <Bot size={15} className="text-[#00ff88]" />
+        <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text)' }}>AI Coach Analysis</h3>
+      </div>
+      <div className="p-5 space-y-4">
+        {headline && (
+          <p className="text-lg font-semibold leading-snug" style={{ color: '#00ff88' }}>{headline}</p>
+        )}
+
+        {coaching_paragraphs.map((para, i) => (
+          <div
+            key={i}
+            className="rounded-xl p-4 border border-[#2a2a4a]"
+            style={{ background: '#1a1a2e', borderLeft: `3px solid ${PARA_ACCENTS[i] ?? '#00d4ff'}` }}
+          >
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{para}</p>
+          </div>
+        ))}
+
+        {quick_tips.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {quick_tips.map((tip, i) => (
+              <span key={i} className="bg-[#2a2a4a] text-white text-sm px-3 py-1 rounded-full">{tip}</span>
+            ))}
+          </div>
+        )}
+
+        {pakistan_player_reference && (
+          <blockquote className="border-l-4 border-[#00d4ff] pl-4 italic text-sm leading-relaxed"
+                      style={{ color: 'var(--text-muted)' }}>
+            {pakistan_player_reference}
+          </blockquote>
+        )}
+
+        {next_session_focus && (
+          <div className="rounded-xl p-4 bg-[#00ff88]/10 border border-[#00ff88]/30">
+            <p className="text-[#00ff88] text-sm font-semibold mb-1">Focus for Next Session</p>
+            <p className="text-sm text-white">{next_session_focus}</p>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
@@ -339,20 +414,29 @@ const ResultPage = ({ onOpenAuth }) => {
   const gradeMsg = GRADE_MESSAGE[grade] || '';
 
   // ── Groq Vision fields (stored inside form_analysis) ──────────────────
-  const aiVerified         = fa.ai_verified         ?? false;
-  const aiLabel            = fa.ai_validation_label ?? null;
+  const aiVerified          = fa.ai_verified         ?? false;
+  const aiLabel             = fa.ai_validation_label ?? null;
   const coachingObservation = fa.coaching_observation ?? '';
-  const keyStrength        = fa.key_strength        ?? '';
-  const keyImprovement     = fa.key_improvement     ?? '';
-  const batWarning         = fa.bat_warning         ?? null;
-  const bodyWarning        = fa.body_warning        ?? null;
-  const groqAvailable      = fa.groq_available      ?? false;
+  const keyStrength         = fa.key_strength        ?? '';
+  const keyImprovement      = fa.key_improvement     ?? '';
+  const batWarning          = fa.bat_warning         ?? null;
+  const bodyWarning         = fa.body_warning        ?? null;
+  const groqAvailable       = fa.groq_available      ?? false;
+
+  // ── Task D context/quality fields (stored at result top-level) ─────────
+  const bowlingContext      = result.bowling_context      ?? 'unknown';
+  const landmarksQuality    = result.landmarks_quality    ?? 'high';
+  const groqCommentary      = result.groq_commentary      ?? fa.groq_commentary ?? null;
+
+  // ── V9.8 shot-bowling compatibility ───────────────────────────────────
+  const compatibility       = fa.shot_bowling_compatibility ?? result.shot_bowling_compatibility ?? 'common';
+  const contextNote         = fa.context_note              ?? result.context_note              ?? '';
 
   return (
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-7xl mx-auto px-4 pt-24 sm:pt-28">
+      <main className="max-w-6xl mx-auto px-4 pt-24 sm:pt-28 pb-8">
 
 
         {/* Top bar */}
@@ -368,6 +452,22 @@ const ResultPage = ({ onOpenAuth }) => {
             <Download size={15} /> Download Full PDF Report
           </a>
         </div>
+
+        {/* ── Shot-bowling context note ────────────────────────────── */}
+        {contextNote && compatibility !== 'common' && compatibility !== 'primary' && (
+          <motion.div
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-xl border mb-4 text-sm"
+            style={
+              compatibility === 'risky'
+                ? { background: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }
+                : { background: 'rgba(234,179,8,0.07)', borderColor: 'rgba(234,179,8,0.25)', color: '#fbbf24' }
+            }
+          >
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{contextNote}</span>
+          </motion.div>
+        )}
 
         {/* ── Warning banners ───────────────────────────────────────── */}
         {batWarning && (
@@ -391,6 +491,28 @@ const ResultPage = ({ onOpenAuth }) => {
           </motion.div>
         )}
 
+        {/* ── Landmark quality banners ─────────────────────────────── */}
+        {landmarksQuality === 'low' && (
+          <motion.div
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-lg border mb-4 text-sm"
+            style={{ background: 'rgba(249,115,22,0.1)', borderColor: 'rgba(249,115,22,0.3)', color: '#fb923c' }}
+          >
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>⚠️ Low landmark detection — ensure your full body is visible for accurate analysis</span>
+          </motion.div>
+        )}
+        {landmarksQuality === 'medium' && (
+          <motion.div
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            className="flex items-start gap-3 px-4 py-3 rounded-lg border mb-4 text-sm"
+            style={{ background: 'rgba(234,179,8,0.1)', borderColor: 'rgba(234,179,8,0.3)', color: '#fbbf24' }}
+          >
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>ℹ️ Partial body detection — results are indicative</span>
+          </motion.div>
+        )}
+
         {/* ── Shot header card ─────────────────────────────────────── */}
         <motion.div
           initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
@@ -401,6 +523,13 @@ const ResultPage = ({ onOpenAuth }) => {
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-dim)' }}>Shot Detected</p>
             <div className="flex flex-wrap items-center gap-3 mb-1">
               <h1 className="text-3xl sm:text-4xl font-display font-extrabold" style={{ color: 'var(--text)' }}>{shot}</h1>
+              {/* Bowling context badge */}
+              {bowlingContext !== 'unknown' && BOWLING_CONTEXT_LABELS[bowlingContext] && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ background: 'rgba(0,255,136,0.2)', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)' }}>
+                  vs {BOWLING_CONTEXT_LABELS[bowlingContext]}
+                </span>
+              )}
               {/* AI verification badge */}
               {aiVerified && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
@@ -460,7 +589,7 @@ const ResultPage = ({ onOpenAuth }) => {
         </motion.div>
 
         {/* ── Main grid ─────────────────────────────────────────────── */}
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* LEFT — Video + coaching */}
           <div className="space-y-6">
@@ -519,22 +648,26 @@ const ResultPage = ({ onOpenAuth }) => {
               </p>
               {(strengths.length > 0 || improvements.length > 0) && (
                 <div className="grid sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <p className="text-xs font-bold text-neon-green mb-1.5 flex items-center gap-1.5">
-                      <CheckCircle2 size={12} /> What you did well
-                    </p>
-                    {strengths.map((s,i) => (
-                      <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: 'var(--text-muted)' }}>✦ {s}</p>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-neon-blue mb-1.5 flex items-center gap-1.5">
-                      <TrendingUpIcon size={12} /> What to work on
-                    </p>
-                    {improvements.map((s,i) => (
-                      <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: 'var(--text-muted)' }}>→ {s}</p>
-                    ))}
-                  </div>
+                  {strengths.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-neon-green mb-1.5 flex items-center gap-1.5">
+                        <CheckCircle2 size={12} /> What you did well
+                      </p>
+                      {strengths.map((s,i) => (
+                        <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: 'var(--text-muted)' }}>✦ {s}</p>
+                      ))}
+                    </div>
+                  )}
+                  {improvements.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-neon-blue mb-1.5 flex items-center gap-1.5">
+                        <TrendingUpIcon size={12} /> What to work on
+                      </p>
+                      {improvements.map((s,i) => (
+                        <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: 'var(--text-muted)' }}>→ {s}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -619,6 +752,9 @@ const ResultPage = ({ onOpenAuth }) => {
               );
             })()}
 
+            {/* Players to Study — moved here from right column for better balance */}
+            <ShotFacts shot={shot} />
+
           </div>
 
           {/* RIGHT — Analysis panel */}
@@ -639,11 +775,16 @@ const ResultPage = ({ onOpenAuth }) => {
                 </p>
               </div>
               <div className="p-3 space-y-0.5">
-                {checks.length ? checks.map((c,i) => <CheckItem key={i} check={c} />) : (
+                {checks.length ? checks.map((c,i) => (
+                  <CheckItem key={i} check={c} bowlingContext={bowlingContext} />
+                )) : (
                   <p className="text-xs p-4" style={{ color: 'var(--text-dim)' }}>No technique checks available.</p>
                 )}
               </div>
             </motion.div>
+
+            {/* Groq AI coaching section — after biomechanics accordion */}
+            <GroqCoachingSection commentary={groqCommentary} />
 
             {/* Drills */}
             <motion.div
@@ -656,7 +797,7 @@ const ResultPage = ({ onOpenAuth }) => {
                 <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text)' }}>Your Practice Drills</h3>
               </div>
               <div className="p-4 space-y-3">
-                {drills.length ? drills.map((d,i) => (
+                {(drills.length > 0 ? drills : [{ name: 'Shadow Practice', description: 'Keep practicing fundamentals — slow-motion reps focusing on your form. 50 daily.' }]).map((d,i) => (
                   <div key={i} className="flex gap-4 p-4 rounded-xl border border-border-dim hover:border-border-soft transition-colors"
                        style={{ background: 'var(--surface-3)' }}>
                     <div className="mt-0.5 flex-shrink-0">{drillIcon(d.name)}</div>
@@ -665,16 +806,10 @@ const ResultPage = ({ onOpenAuth }) => {
                       <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{d.description}</p>
                     </div>
                   </div>
-                )) : (
-                  <p className="text-sm italic p-2" style={{ color: 'var(--text-dim)' }}>
-                    No specific drills needed — keep it up!
-                  </p>
-                )}
+                ))}
               </div>
             </motion.div>
 
-            {/* Shot facts — players, tips, fun fact (below technical content) */}
-            <ShotFacts shot={shot} />
 
           </div>
         </div>

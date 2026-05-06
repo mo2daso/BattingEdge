@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import uuid
@@ -40,7 +41,7 @@ except ImportError:
     from backend.video_checks import check_motion, check_pose_completeness, auto_detect_trim
     import backend.auth_utils as _auth_utils
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -95,9 +96,15 @@ def _check_rate(ip: str) -> bool:
 _VIDEO_MAGIC: list[tuple[int, bytes]] = [
     (0,  b'RIFF'),              # AVI
     (0,  b'\x1a\x45\xdf\xa3'), # WebM / MKV
-    (4,  b'ftyp'),              # MP4 / MOV / M4V
-    (0,  b'\x00\x00\x00'),     # Some MP4 variants
+    (4,  b'ftyp'),              # MP4 / MOV / M4V (standard — ftyp box first)
+    (4,  b'mdat'),              # MP4/MOV where large mdat box comes first (professional cameras)
+    (4,  b'moov'),              # MOV where moov atom comes first (old QuickTime)
+    (4,  b'free'),              # MOV with free atom first (Canon, Nikon, Sony DSLRs)
+    (4,  b'wide'),              # MOV with wide atom first (older QuickTime)
+    (0,  b'\x00\x00\x00'),     # Any QuickTime/MP4 box whose size < 16 MB
 ]
+
+_MOV_ATOMS = {b'ftyp', b'mdat', b'moov', b'free', b'wide', b'skip', b'pnot', b'junk'}
 
 def _looks_like_video(header: bytes) -> bool:
     if len(header) < 12:
@@ -105,6 +112,10 @@ def _looks_like_video(header: bytes) -> bool:
     for offset, sig in _VIDEO_MAGIC:
         if header[offset:offset + len(sig)] == sig:
             return True
+    # QuickTime/MP4: bytes 4-7 are always a 4-letter atom type.
+    # Handles files where the first atom is large (size bytes are non-zero).
+    if len(header) >= 8 and header[4:8] in _MOV_ATOMS:
+        return True
     return False
 
 app.add_middleware(
@@ -162,10 +173,12 @@ def process_video_task(video_id: str, input_path: Path):
     logger.info(f"{'=' * 60}")
 
     try:
-        # Retrieve trim window set at upload time
-        _meta = db.get_analysis(video_id) or {}
-        _start_time = _meta.get('start_time')
-        _end_time   = _meta.get('end_time')
+        # Retrieve stored metadata (trim window + bowling/camera context)
+        _meta            = db.get_analysis(video_id) or {}
+        _start_time      = _meta.get('start_time')
+        _end_time        = _meta.get('end_time')
+        _bowling_context = _meta.get('bowling_context') or 'default'
+        _camera_context  = _meta.get('camera_context')  or 'unknown'
 
         # ── Pre-inference checks ──────────────────────────────────────────────
 
@@ -187,11 +200,18 @@ def process_video_task(video_id: str, input_path: Path):
         # Step 1: Pose extraction / inference (progress 10 → 60)
         db.update_progress(video_id, 10, status="processing")
         logger.info(f"[api/analyze] Step 1/4: Running inference...")
-        result = classifier.predict_video(str(input_path), start_time=_start_time, end_time=_end_time)
+        result = classifier.predict_video(
+            str(input_path),
+            bowling_context=_bowling_context,
+            camera_context=_camera_context,
+            start_time=_start_time,
+            end_time=_end_time,
+        )
         result['filename'] = input_path.name
 
         if 'error' in result:
-            error_msg = result.get('error', 'Unknown inference error')
+            # Prefer the human-readable 'message' field if present (e.g. insufficient_landmarks)
+            error_msg = result.get('message') or result.get('error', 'Unknown inference error')
             logger.error(f"[api/analyze] ❌ Inference FAILED: {error_msg}")
             db.update_progress(video_id, 0, status="failed")
             db.update_status(video_id, "failed", error_msg)
@@ -236,18 +256,12 @@ def process_video_task(video_id: str, input_path: Path):
         except Exception as _groq_exc:
             logger.warning(f"[api/analyze]    ⚠️ Groq Vision failed (using ML result): {_groq_exc}")
 
-        # Step 1c: Coaching commentary via LLaMA (non-blocking — empty string on failure)
-        _context = {}
-        if _meta.get('bowling_type'):
-            _context['bowling_type'] = _meta['bowling_type']
-        if _meta.get('ball_pitch'):
-            _context['ball_pitch'] = _meta['ball_pitch']
-        _commentary = generate_coaching_commentary(result, context=_context or None)
-        if _commentary:
-            result.setdefault('form_analysis', {})['coaching_commentary'] = _commentary
-            logger.info("[api/analyze]    ✅ Coaching commentary generated")
+        # Coaching commentary is now generated inside predict_video() (Task C).
+        # groq_commentary is already set on result['form_analysis'] at this point.
+        if result.get('form_analysis', {}).get('groq_commentary'):
+            logger.info("[api/analyze]    ✅ Groq coaching commentary present")
         else:
-            logger.info("[api/analyze]    ℹ️ Coaching commentary skipped (no key or empty)")
+            logger.info("[api/analyze]    ℹ️ Groq coaching commentary not available")
 
         # Step 2: Overlay generation (progress 60 → 85)
         db.update_progress(video_id, 60)
@@ -357,10 +371,12 @@ async def server_info(request: Request):
 async def upload_video(
     request: Request,
     file: UploadFile = File(...),
-    start_time:   float = Form(default=None),
-    end_time:     float = Form(default=None),
-    bowling_type: str   = Form(default=None),
-    ball_pitch:   str   = Form(default=None),
+    start_time:      float = Form(default=None),
+    end_time:        float = Form(default=None),
+    bowling_type:    str   = Form(default=None),
+    ball_pitch:      str   = Form(default=None),
+    bowling_context: str   = Query(default="unknown"),
+    camera_context:  str   = Query(default="unknown"),
 ):
     """Upload endpoint with rate limiting and file validation."""
     client_ip = request.client.host if request.client else "unknown"
@@ -402,6 +418,8 @@ async def upload_video(
             start_time=start_time, end_time=end_time,
             bowling_type=bowling_type or None,
             ball_pitch=ball_pitch or None,
+            bowling_context=bowling_context or None,
+            camera_context=camera_context or None,
         )
 
         logger.info(f"✅ Upload successful: {video_id} ({file.filename}, {file_size_mb:.1f}MB)")
@@ -467,6 +485,15 @@ async def get_result(video_id: str):
 
     if status == 'completed':
         logger.debug(f"[api/result] Status: completed for {video_id}")
+        # Parse groq_commentary from JSON string stored in DB
+        try:
+            record['groq_commentary'] = json.loads(record.get('groq_commentary'))
+        except Exception:
+            record['groq_commentary'] = None
+        # Ensure context/quality fields are present at top level for frontend
+        record.setdefault('bowling_context',      'unknown')
+        record.setdefault('camera_context',       'unknown')
+        record.setdefault('feature_completeness', 1.0)
         return {
             "status": "completed",
             "progress": 100,

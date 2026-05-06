@@ -59,7 +59,7 @@ const fmtDate = (iso) => {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 const StatCard = ({ icon: Icon, label, value, color = 'text-neon-blue', sub }) => (
-  <div className="p-5 rounded-2xl border border-border-dim flex items-start gap-4 card-hover"
+  <div className="p-5 rounded-2xl border border-border-dim flex flex-col justify-between h-full card-hover"
        style={{ background: 'var(--surface-2)' }}>
     <div className={`w-11 h-11 rounded-xl border border-border-dim flex items-center justify-center flex-shrink-0 ${color}`}
          style={{ background: 'var(--surface-3)' }}>
@@ -294,10 +294,10 @@ const DashboardPage = ({ onOpenAuth }) => {
   ];
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-screen pb-20 overflow-x-hidden" style={{ background: 'var(--bg)' }}>
       <Navbar onOpenAuth={onOpenAuth} />
 
-      <main className="max-w-5xl mx-auto px-4 pt-24 sm:pt-28">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28">
 
         {/* Header with avatar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -348,7 +348,7 @@ const DashboardPage = ({ onOpenAuth }) => {
         {/* Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
         >
           <StatCard icon={BarChart3}   label="Total Analyses"  value={history.length || '0'}             color="text-neon-blue" />
           <StatCard icon={TrendingUp}  label="Average Score"   value={history.length ? `${avgScore}/100` : '—'} color="text-neon-green" />

@@ -1,16 +1,20 @@
 """
 Groq AI endpoints:
-  POST /api/chat          — cricket chatbot (BESSA)
-  generate_coaching_commentary() — sync utility called from background task
+  POST /api/chat                      — cricket chatbot (BESSA)
+  generate_coaching_commentary()      — async, JSON-structured coaching output
+  _generate_coaching_commentary_legacy() — retained for any callers not yet
+                                          migrated; Task C will replace usages
 """
-import os
+import json
 import logging
+import os
+import re
 from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from groq import Groq
+from pydantic import BaseModel
 
 logger = logging.getLogger("GroqRouter")
 router = APIRouter()
@@ -100,6 +104,17 @@ async def chat(body: ChatRequest):
 
 _COACHING_MODEL = "llama-3.1-8b-instant"
 
+# System prompt for the new JSON-structured coaching function
+_COACHING_SYSTEM_PROMPT_V2 = (
+    "You are an ECB Level 2 certified batting coach with 15 years experience "
+    "coaching Pakistani grassroots cricketers aged 14-25. You give honest, "
+    "encouraging, actionable feedback. Reference Pakistani cricket context "
+    "naturally where relevant (Babar Azam, PSL, domestic cricket). You "
+    "understand biomechanics but explain things in plain language. You never "
+    "say a player is bad — you say what specifically to improve and how."
+)
+
+# Legacy system prompt retained for _generate_coaching_commentary_legacy
 _COACHING_SYSTEM_PROMPT = """\
 You are an ECB Level 2 certified batting coach with 15 years of professional \
 coaching experience across county and international cricket. You provide precise, \
@@ -124,7 +139,7 @@ no markdown. Address the batter directly in the second person ("you", "your").\
 
 
 def _build_user_message(analysis_result: dict, context: Optional[dict]) -> str:
-    """Serialise the analysis result into a structured coaching brief."""
+    """Serialise the analysis result into a structured coaching brief (legacy helper)."""
     shot       = analysis_result.get("prediction", "Unknown Shot")
     confidence = analysis_result.get("confidence", 0.0)
     fa         = analysis_result.get("form_analysis", {})
@@ -134,7 +149,6 @@ def _build_user_message(analysis_result: dict, context: Optional[dict]) -> str:
     strengths  = fa.get("strengths", [])
     improvements = fa.get("key_improvements", [])
 
-    # Biomechanical checks table
     check_lines = []
     for c in checks:
         name   = c.get("name", "")
@@ -147,7 +161,6 @@ def _build_user_message(analysis_result: dict, context: Optional[dict]) -> str:
         )
     checks_block = "\n".join(check_lines) if check_lines else "  (no check data)"
 
-    # Optional delivery context
     bowling = (context or {}).get("bowling_type", "unknown")
     pitch   = (context or {}).get("ball_pitch",   "unknown")
     context_parts = []
@@ -176,22 +189,17 @@ def _build_user_message(analysis_result: dict, context: Optional[dict]) -> str:
     )
 
 
-def generate_coaching_commentary(
+def _generate_coaching_commentary_legacy(
     analysis_result: dict,
     context: Optional[dict] = None,
 ) -> str:
     """
-    Generate contextual coaching commentary for a completed batting analysis.
-
-    Args:
-        analysis_result: Full prediction dict from StackingEnsembleClassifier.predict_video()
-        context: Optional {"bowling_type": str, "ball_pitch": str}
-
-    Returns:
-        3-4 paragraph coaching commentary string, or a brief fallback on error.
+    Legacy sync coaching commentary (prose string output).
+    Retained until inference_v9_5.py is updated in Task C.
+    New callers should use generate_coaching_commentary() instead.
     """
     if not GROQ_API_KEY:
-        logger.warning("generate_coaching_commentary: GROQ_API_KEY not set — skipping")
+        logger.warning("_generate_coaching_commentary_legacy: GROQ_API_KEY not set — skipping")
         return ""
 
     user_message = _build_user_message(analysis_result, context)
@@ -201,8 +209,8 @@ def generate_coaching_commentary(
         response = client.chat.completions.create(
             model=_COACHING_MODEL,
             messages=[
-                {"role": "system",  "content": _COACHING_SYSTEM_PROMPT},
-                {"role": "user",    "content": user_message},
+                {"role": "system", "content": _COACHING_SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
             ],
             max_tokens=700,
             temperature=0.65,
@@ -210,9 +218,268 @@ def generate_coaching_commentary(
         )
         commentary = response.choices[0].message.content.strip()
         tokens     = getattr(response.usage, "total_tokens", "?")
-        logger.info(f"Coaching commentary generated: {tokens} tokens")
+        logger.info(f"Legacy coaching commentary generated: {tokens} tokens")
         return commentary
 
     except Exception as exc:
-        logger.warning(f"generate_coaching_commentary failed ({exc}); returning empty string")
+        logger.warning(f"_generate_coaching_commentary_legacy failed ({exc}); returning empty string")
         return ""
+
+
+# ── New async JSON-structured coaching commentary ─────────────────────────────
+
+async def generate_coaching_commentary(
+    analysis_result: dict,
+    bowling_context: str = "unknown",
+    ball_pitch: str = "unknown",
+    camera_context: str = "unknown",
+    feature_completeness: float = 1.0,
+    player_history: list = None,
+) -> Optional[dict]:
+    """
+    Generate JSON-structured coaching commentary via Groq.
+
+    Parameters
+    ----------
+    analysis_result      : dict returned by ShotRules.analyze_shot() or the
+                           full predict_video() result (checks nested under
+                           form_analysis or at top level — both handled)
+    bowling_context      : fast | spin | medium | tape_ball | default | unknown
+    ball_pitch           : good_length | short | full | yorker | unknown
+    camera_context       : front_on | angled | side_on | unknown
+    feature_completeness : fraction of landmarks detected (0.0–1.0)
+    player_history       : list of previous analysis dicts with 'overall_score'
+
+    Returns
+    -------
+    dict with keys: headline, coaching_paragraphs, quick_tips,
+                    pakistan_player_reference, next_session_focus
+    Returns None if GROQ_API_KEY is not set.
+    Returns fallback dict on Groq/parse errors.
+    """
+    if not GROQ_API_KEY:
+        logger.warning("generate_coaching_commentary: GROQ_API_KEY not set — returning None")
+        return None
+
+    if player_history is None:
+        player_history = []
+
+    # Handle insufficient data from Task A's new status field
+    if analysis_result.get("status") == "insufficient_data":
+        return {
+            "headline": "Not enough data to analyse this shot",
+            "coaching_paragraphs": [
+                analysis_result.get(
+                    "message",
+                    "Too few body landmarks were detected to produce a reliable analysis."
+                )
+            ],
+            "quick_tips": ["Ensure your full body is visible in the frame"],
+            "pakistan_player_reference": "",
+            "next_session_focus": "Film from a better angle with full body in frame",
+        }
+
+    # Resolve nested vs flat dict — predict_video() wraps under form_analysis
+    fa     = analysis_result.get("form_analysis", analysis_result)
+    shot   = analysis_result.get("prediction", fa.get("shot_type", "Unknown Shot"))
+    conf   = analysis_result.get("confidence", fa.get("confidence", 0.0))
+    score  = fa.get("overall_score", analysis_result.get("overall_score", 0))
+    grade  = fa.get("grade",         analysis_result.get("grade", "N/A"))
+    checks = fa.get("checks",        analysis_result.get("checks", []))
+    key_improvements = fa.get("key_improvements", analysis_result.get("key_improvements", []))
+    perf_level       = fa.get("performance_level", analysis_result.get("performance_level", ""))
+
+    # Build checks block — include bowling_adjusted tag from Task A
+    check_lines = []
+    for c in checks:
+        line = (
+            f"  • {c.get('name', '')}: measured {c.get('value', 'N/A')} "
+            f"(ideal {c.get('ideal_range', 'N/A')}) — {c.get('status', '')}. "
+            f"{c.get('advice', '')}"
+        )
+        if c.get("bowling_adjusted"):
+            line += f" [threshold adjusted for {bowling_context} bowling]"
+        if c.get("camera_warning"):
+            line += " [camera tolerance applied]"
+        check_lines.append(line)
+    checks_block = "\n".join(check_lines) if check_lines else "  (no check data)"
+
+    # Delivery context block
+    ctx_parts = []
+    if bowling_context not in ("unknown", "default", ""):
+        ctx_parts.append(f"Bowling type: {bowling_context}")
+    if ball_pitch not in ("unknown", ""):
+        ctx_parts.append(f"Ball pitch: {ball_pitch}")
+    if camera_context not in ("unknown", ""):
+        ctx_parts.append(f"Camera angle: {camera_context}")
+    ctx_block = "\n".join(ctx_parts) if ctx_parts else "Not specified"
+
+    # Feature completeness warning
+    fc_note = ""
+    if feature_completeness < 0.80:
+        fc_note = (
+            f"\nWARNING: Only {feature_completeness:.0%} of expected body "
+            "landmarks were detected. Analysis may be less precise than usual."
+        )
+
+    # Player history comparison
+    history_note = ""
+    if player_history:
+        prev_scores = [
+            e.get("overall_score")
+            for e in player_history
+            if isinstance(e.get("overall_score"), (int, float))
+        ]
+        if prev_scores and score is not None:
+            last = prev_scores[-1]
+            diff = score - last
+            if diff > 0:
+                history_note = (
+                    f"\nPROGRESS: Score improved by {diff} points from last "
+                    f"session (was {last}, now {score}). Acknowledge this."
+                )
+            elif diff < 0:
+                history_note = (
+                    f"\nREGRESSION: Score dropped {abs(diff)} points from last "
+                    f"session (was {last}, now {score}). Address this in commentary."
+                )
+            else:
+                history_note = (
+                    f"\nCONSISTENCY: Score unchanged from last session ({score})."
+                )
+
+    bc_label = bowling_context if bowling_context not in ("unknown", "") else "general"
+
+    user_message = (
+        f"Shot analysed: {shot}\n"
+        f"Model confidence: {conf:.1f}%\n"
+        f"Overall score: {score}/100 | Grade: {grade} | Level: {perf_level}\n"
+        f"\nDelivery context:\n{ctx_block}"
+        f"{fc_note}"
+        f"{history_note}"
+        f"\n\nBiomechanical check results:\n{checks_block}"
+        "\n\nReturn ONLY valid JSON — no markdown, no backticks, no code fences."
+        " Use exactly this structure:\n"
+        '{\n'
+        '  "headline": "One sentence verdict, max 15 words",\n'
+        '  "coaching_paragraphs": [\n'
+        '    "What the batter did well — cite specific measurements, 2-3 sentences",\n'
+        '    "Primary area to improve — include a specific drill, 2-3 sentences",\n'
+        f'    "{bc_label.capitalize()} bowling-specific tip — 2-3 sentences"\n'
+        '  ],\n'
+        '  "quick_tips": ["tip 1 max 10 words", "tip 2 max 10 words", "tip 3 max 10 words"],\n'
+        '  "pakistan_player_reference": "Pakistani batter known for this shot, 1-2 sentences",\n'
+        '  "next_session_focus": "One specific thing to practise next session"\n'
+        '}'
+    )
+
+    payload = {
+        "model":       _COACHING_MODEL,
+        "messages":    [
+            {"role": "system", "content": _COACHING_SYSTEM_PROMPT_V2},
+            {"role": "user",   "content": user_message},
+        ],
+        "max_tokens":  700,
+        "temperature": 0.65,
+        "stream":      False,
+    }
+
+    fallback = {
+        "headline": f"{perf_level} {grade} technique".strip(),
+        "coaching_paragraphs": (
+            key_improvements if key_improvements
+            else ["Keep working on your technique."]
+        ),
+        "quick_tips": [],
+        "pakistan_player_reference": "",
+        "next_session_focus": (
+            key_improvements[0] if key_improvements else "Keep practicing"
+        ),
+    }
+
+    # --- Groq request ---
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                GROQ_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type":  "application/json",
+                },
+            )
+
+        if resp.status_code != 200:
+            logger.error(
+                f"generate_coaching_commentary: Groq {resp.status_code}: {resp.text}"
+            )
+            return fallback
+
+        data   = resp.json()
+        raw    = data["choices"][0]["message"]["content"].strip()
+        tokens = data.get("usage", {}).get("total_tokens", 0)
+        logger.info(f"Coaching commentary generated: {tokens} tokens")
+
+    except httpx.TimeoutException:
+        logger.warning("generate_coaching_commentary: Groq timed out (10 s)")
+        return fallback
+    except Exception as exc:
+        logger.warning(f"generate_coaching_commentary: request failed ({exc})")
+        return fallback
+
+    # --- JSON parse (with accidental fence stripping) ---
+    commentary = None
+    try:
+        commentary = json.loads(raw)
+    except json.JSONDecodeError:
+        cleaned = re.sub(r"```(?:json)?|```", "", raw).strip()
+        try:
+            commentary = json.loads(cleaned)
+        except json.JSONDecodeError:
+            logger.warning(
+                "generate_coaching_commentary: JSON parse failed, using fallback"
+            )
+            return fallback
+
+    # Ensure required keys exist
+    commentary.setdefault("headline",                  fallback["headline"])
+    commentary.setdefault("coaching_paragraphs",       fallback["coaching_paragraphs"])
+    commentary.setdefault("quick_tips",                [])
+    commentary.setdefault("pakistan_player_reference", "")
+    commentary.setdefault("next_session_focus",        fallback["next_session_focus"])
+
+    paras = commentary["coaching_paragraphs"]
+
+    # Post-processing rule 1: spin + hip_rotation < 65 → mention footwork in para 2
+    if bowling_context == "spin":
+        hip_score = next(
+            (
+                c.get("score_pct", 100)
+                for c in checks
+                if "hip" in c.get("name", "").lower()
+            ),
+            100,
+        )
+        if hip_score < 65 and len(paras) >= 2:
+            if "footwork" not in paras[1].lower():
+                paras[1] = (
+                    "Against spin, getting your footwork right unlocks better "
+                    "hip rotation. " + paras[1]
+                )
+
+    # Post-processing rule 3: fast + elbow_angle < 65 → add compact swing tip
+    if bowling_context == "fast":
+        elbow_score = next(
+            (
+                c.get("score_pct", 100)
+                for c in checks
+                if "elbow" in c.get("name", "").lower()
+            ),
+            100,
+        )
+        if elbow_score < 65:
+            tip = "Compact swing is OK vs pace"
+            if tip not in commentary["quick_tips"]:
+                commentary["quick_tips"].append(tip)
+
+    return commentary
