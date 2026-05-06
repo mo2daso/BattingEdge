@@ -81,6 +81,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
   const [tab,              setTab]              = useState('upload');
   const [file,             setFile]             = useState(null);
+  const [isFromCamera,     setIsFromCamera]     = useState(false);
   const [isDragging,       setIsDragging]       = useState(false);
   const [stage,            setStage]            = useState('idle');
   const [uploadPct,        setUploadPct]        = useState(0);
@@ -90,20 +91,22 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [camOpen,          setCamOpen]          = useState(false);
 
   // ── File handling ──────────────────────────────────────────────────────────
-  const acceptFile = (f) => {
+  const acceptFile = (f, fromCamera = false) => {
     if (!f) return;
     if (f.size > 100 * 1024 * 1024) { toast.error('File too large. Max 100MB.'); return; }
+    setIsFromCamera(fromCamera);
     setFile(f);
     setStage('idle');
     setErrMsg('');
+    if (!fromCamera) doUploadAndAnalyze(f);
   };
 
   const handleDrop = (e) => {
     e.preventDefault(); setIsDragging(false);
-    acceptFile(e.dataTransfer.files?.[0]);
+    acceptFile(e.dataTransfer.files?.[0], false);
   };
 
-  const handleCameraVideo = (f) => { setTab('upload'); acceptFile(f); };
+  const handleCameraVideo = (f) => { setTab('upload'); acceptFile(f, true); };
 
   // ── Poll result ────────────────────────────────────────────────────────────
   const startPolling = useCallback((videoId) => {
@@ -175,7 +178,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
 
   const reset = () => {
     clearInterval(pollRef.current);
-    setFile(null); setStage('idle'); setUploadPct(0);
+    setFile(null); setIsFromCamera(false); setStage('idle'); setUploadPct(0);
     setAnalysisProgress(0); setErrMsg('');
   };
 
@@ -366,19 +369,18 @@ const AnalyzePage = ({ onOpenAuth }) => {
                         </button>
                       </div>
                       <input ref={fileRef} type="file" accept="video/*" className="hidden"
-                             onChange={e => e.target.files?.[0] && acceptFile(e.target.files[0])} />
+                             onChange={e => e.target.files?.[0] && acceptFile(e.target.files[0], false)} />
                     </div>
                   )}
 
-                  {/* File selected → show info row + VideoTrimmer */}
-                  {file && (
+                  {/* Camera recording: show trimmer */}
+                  {file && isFromCamera && (
                     <motion.div
                       key="selected"
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       className="space-y-4"
                     >
-                      {/* File info row */}
                       <div className="flex items-center gap-3 bg-white/5 border border-border-soft rounded-2xl p-4">
                         <div className="w-10 h-10 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center flex-shrink-0">
                           <FileVideo size={18} className="text-neon-blue" />
@@ -392,8 +394,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
                           <X size={16} />
                         </button>
                       </div>
-
-                      {/* VideoTrimmer — always shown when file selected */}
                       <VideoTrimmer
                         file={file}
                         onTrimComplete={handleTrimComplete}

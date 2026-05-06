@@ -752,9 +752,6 @@ const ResultPage = ({ onOpenAuth }) => {
               );
             })()}
 
-            {/* Players to Study — moved here from right column for better balance */}
-            <ShotFacts shot={shot} />
-
           </div>
 
           {/* RIGHT — Analysis panel */}
@@ -810,6 +807,8 @@ const ResultPage = ({ onOpenAuth }) => {
               </div>
             </motion.div>
 
+            {/* Players to Study — below practice drills */}
+            <ShotFacts shot={shot} />
 
           </div>
         </div>

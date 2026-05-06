@@ -291,25 +291,15 @@ class StackingEnsembleClassifier:
         
         return resampled, sampled_lms, feature_completeness
 
-    def predict_video(self, video_path, bowling_context="default",
-                      camera_context="unknown", start_time=None, end_time=None):
-        """YOUR PREDICTION LOGIC - UNCHANGED (bowling/camera context added)"""
+    def predict_video(self, video_path, start_time=None, end_time=None, **kwargs):
+        """YOUR PREDICTION LOGIC - UNCHANGED"""
         if not Path(video_path).exists():
             return {"error": "File not found"}
 
-        features, lms, feature_completeness = self.extract_features(
+        features, lms, _ = self.extract_features(
             video_path, start_time=start_time, end_time=end_time
         )
         if features is None:
-            if feature_completeness < 0.60:
-                return {
-                    "error": "insufficient_landmarks",
-                    "message": (
-                        "Less than 60% of body landmarks detected. "
-                        "Ensure your full body is visible and lighting is good."
-                    ),
-                    "feature_completeness": feature_completeness,
-                }
             return {"error": "No pose detected"}
         
         try:
@@ -336,60 +326,14 @@ class StackingEnsembleClassifier:
             shot = self.classes[idx]
             conf = float(final[idx] * 100)
             
-            form = self.analyzer.analyze(
-                lms, shot, bowling_context, camera_context, feature_completeness
-            )
-
-            # Gate 1 failure: ShotRules couldn't score (too few landmarks)
-            if form.get('status') == 'insufficient_data':
-                return {
-                    "error": form.get(
-                        'message',
-                        'Too few body landmarks detected. Ensure your full body is '
-                        'visible and well-lit, filmed side-on at close range.'
-                    ),
-                    "feature_completeness": feature_completeness,
-                }
-
-            # Groq coaching commentary (non-critical — never crashes predict_video)
-            try:
-                from groq_router import generate_coaching_commentary
-                import asyncio
-                # Use new_event_loop for safety inside sync thread-pool tasks on Windows
-                _loop = asyncio.new_event_loop()
-                try:
-                    groq_result = _loop.run_until_complete(
-                        generate_coaching_commentary(
-                            analysis_result=form,
-                            bowling_context=bowling_context,
-                            camera_context=camera_context,
-                            feature_completeness=feature_completeness,
-                        )
-                    )
-                finally:
-                    _loop.close()
-                if groq_result:
-                    form['groq_commentary'] = groq_result
-            except Exception as e:
-                logger.warning(f"Groq commentary failed (non-critical): {e}")
-                form['groq_commentary'] = None
-
-            landmarks_quality = (
-                'high'   if feature_completeness > 0.80 else
-                'medium' if feature_completeness > 0.60 else
-                'low'
-            )
+            form = self.analyzer.analyze(lms, shot)
 
             return {
-                "prediction":          shot,
-                "confidence":          conf,
-                "all_probabilities":   {self.classes[i]: float(final[i]*100) for i in range(len(final))},
-                "form_analysis":       form,
-                "filename":            Path(video_path).name,
-                "feature_completeness": feature_completeness,
-                "landmarks_quality":   landmarks_quality,
-                "bowling_context":     bowling_context,
-                "camera_context":      camera_context,
+                "prediction": shot,
+                "confidence": conf,
+                "all_probabilities": {self.classes[i]: float(final[i]*100) for i in range(len(final))},
+                "form_analysis": form,
+                "filename": Path(video_path).name,
             }
         except Exception as e:
             logger.error(f"Predict Error: {e}")
@@ -401,24 +345,31 @@ class StackingEnsembleClassifier:
         Uses YOLO ONLY for visualization (green box around batsman)
         MediaPipe runs on FULL FRAME (no cropping - matches training)
         """
-        cap = cv2.VideoCapture(str(input_path))
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-
-        # Read first frame to get actual decoded dimensions.
-        # Phones recording landscape with portrait rotation metadata cause
-        # cap.get(3/4) to return wrong dimensions on Linux → corrupt VideoWriter.
-        ret0, _first = cap.read()
-        if ret0 and _first is not None:
+        # Probe for actual decoded dimensions — phones with rotation metadata lie about width/height.
+        _probe = cv2.VideoCapture(str(input_path))
+        fps = _probe.get(cv2.CAP_PROP_FPS) or 30
+        _ret0, _first = _probe.read()
+        if _ret0 and _first is not None:
             h, w = _first.shape[:2]
         else:
-            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            w = int(_probe.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(_probe.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        _probe.release()
 
-        # mp4v works everywhere; avc1/H264 requires FFmpeg compiled into OpenCV (not on many Linux servers).
-        out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-        if not out.isOpened():
-            out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'XVID'), fps, (w, h))
+        # Reopen fresh — cap.set(POS_FRAMES, 0) after read() is unreliable on Windows.
+        cap = cv2.VideoCapture(str(input_path))
+
+        # Try avc1 (H.264, best browser compat) → mp4v → XVID as fallbacks.
+        out = None
+        for _fourcc_str in ('avc1', 'mp4v', 'XVID'):
+            _w = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*_fourcc_str), fps, (w, h))
+            if _w.isOpened():
+                out = _w
+                break
+            _w.release()
+        if out is None:
+            cap.release()
+            return False
         
         shot = data['prediction'].upper()
         form = data.get('form_analysis', {})
