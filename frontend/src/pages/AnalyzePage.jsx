@@ -12,13 +12,6 @@ import VideoTrimmer from '../components/VideoTrimmer';
 import api, { triggerAnalysis, getResult, saveToHistory } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
-// ── Bowling context options ───────────────────────────────────────────────────
-const BOWLING_OPTIONS = [
-  { label: 'Fast Bowling', value: 'fast'    },
-  { label: 'Spin Bowling', value: 'spin'    },
-  { label: 'Skip',         value: 'unknown' },
-];
-
 // ── Progress Steps ─────────────────────────────────────────────────────────────
 const STEPS = [
   { label: 'Uploading',         icon: Upload,    range: [0,  10] },
@@ -95,7 +88,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
   const [analysisStatus,   setAnalysisStatus]   = useState('');
   const [errMsg,           setErrMsg]           = useState('');
   const [camOpen,          setCamOpen]          = useState(false);
-  const [bowlingContext,   setBowlingContext]   = useState('unknown');
 
   // ── File handling ──────────────────────────────────────────────────────────
   const acceptFile = (f) => {
@@ -158,7 +150,7 @@ const AnalyzePage = ({ onOpenAuth }) => {
       fd.append('file', fileToUpload);
       if (startTime !== null && startTime > 0) fd.append('start_time', String(startTime));
       if (endTime   !== null)                  fd.append('end_time',   String(endTime));
-      const uploadUrl = `/api/upload?bowling_context=${encodeURIComponent(bowlingContext)}`;
+      const uploadUrl = `/api/upload?bowling_context=unknown`;
       const uploadRes = await api.post(uploadUrl, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => setUploadPct(Math.round((e.loaded * 100) / e.total)),
@@ -332,29 +324,6 @@ const AnalyzePage = ({ onOpenAuth }) => {
               {/* ── UPLOAD TAB ── */}
               {tab === 'upload' && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-
-                  {/* Bowling context selector */}
-                  <div className="rounded-2xl border border-border-dim p-4 mb-4"
-                       style={{ background: 'var(--surface-2)' }}>
-                    <p className="text-sm text-gray-400 mb-3">
-                      What were you practicing against? <span className="text-gray-600">(optional)</span>
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {BOWLING_OPTIONS.map(({ label, value }) => (
-                        <button
-                          key={value}
-                          onClick={() => setBowlingContext(value)}
-                          className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                            bowlingContext === value
-                              ? 'bg-[#00d4ff] text-black'
-                              : 'border border-[#00d4ff] text-[#00d4ff] bg-transparent hover:bg-[#00d4ff]/10'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Drop zone (shown when no file yet) */}
                   {!file && (

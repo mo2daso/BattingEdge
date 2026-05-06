@@ -26,8 +26,7 @@ try:
     import report as rpt
     import auth_models
     from auth_router  import router as auth_router
-    from groq_router  import router as groq_router, generate_coaching_commentary
-    from groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
+    from groq_router  import router as groq_router
     from video_checks import check_motion, check_pose_completeness, auto_detect_trim
     import auth_utils as _auth_utils
 except ImportError:
@@ -36,8 +35,7 @@ except ImportError:
     import backend.report as rpt
     import backend.auth_models as auth_models
     from backend.auth_router  import router as auth_router
-    from backend.groq_router  import router as groq_router, generate_coaching_commentary
-    from backend.groq_vision  import analyze_with_groq_vision, merge_results as groq_merge
+    from backend.groq_router  import router as groq_router
     from backend.video_checks import check_motion, check_pose_completeness, auto_detect_trim
     import backend.auth_utils as _auth_utils
 
@@ -226,38 +224,11 @@ def process_video_task(video_id: str, input_path: Path):
         _, _pose_warning = check_pose_completeness(str(input_path), _start_time, _end_time)
         if _pose_warning:
             _fa = result.get('form_analysis', {})
-            if not _fa.get('body_warning'):   # don't overwrite Groq's check later
-                _fa['body_warning'] = _pose_warning
+            _fa['body_warning'] = _pose_warning
             result['form_analysis'] = _fa
             logger.info(f"[api/analyze]    ⚠️ Pose completeness: {_pose_warning}")
 
-        # Step 1b: Groq Vision enhancement (sync, 14 s timeout via SDK client)
-        try:
-            _groq_result = analyze_with_groq_vision(
-                str(input_path),
-                result.get('prediction'),
-                result.get('confidence'),
-                start_time=_start_time,
-                end_time=_end_time,
-            )
-            result = groq_merge(result, _groq_result)
-
-            if result.get('error') and result.get('cricket_shot_detected') is False:
-                logger.warning(f"[api/analyze]    ⚠️ Groq: {result['error']}")
-                db.update_progress(video_id, 0, status="failed")
-                db.update_status(video_id, "failed", result['error'])
-                return
-
-            logger.info(
-                f"[api/analyze]    ✅ Groq Vision: "
-                f"ai_verified={result.get('form_analysis', {}).get('ai_verified')}, "
-                f"enhanced_score={result.get('form_analysis', {}).get('overall_score')}"
-            )
-        except Exception as _groq_exc:
-            logger.warning(f"[api/analyze]    ⚠️ Groq Vision failed (using ML result): {_groq_exc}")
-
-        # Coaching commentary is now generated inside predict_video() (Task C).
-        # groq_commentary is already set on result['form_analysis'] at this point.
+        # Coaching commentary is generated inside predict_video()
         if result.get('form_analysis', {}).get('groq_commentary'):
             logger.info("[api/analyze]    ✅ Groq coaching commentary present")
         else:

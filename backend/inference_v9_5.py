@@ -402,18 +402,23 @@ class StackingEnsembleClassifier:
         MediaPipe runs on FULL FRAME (no cropping - matches training)
         """
         cap = cv2.VideoCapture(str(input_path))
-        w = int(cap.get(3))
-        h = int(cap.get(4))
-        fps = cap.get(5)
-        
-        try:
-            if str(output_path).endswith('.webm'):
-                fourcc = cv2.VideoWriter_fourcc(*'vp80')
-            else:
-                fourcc = cv2.VideoWriter_fourcc(*'avc1')
-            out = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
-        except: 
-            out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+
+        # Read first frame to get actual decoded dimensions.
+        # Phones recording landscape with portrait rotation metadata cause
+        # cap.get(3/4) to return wrong dimensions on Linux → corrupt VideoWriter.
+        ret0, _first = cap.read()
+        if ret0 and _first is not None:
+            h, w = _first.shape[:2]
+        else:
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+        # mp4v works everywhere; avc1/H264 requires FFmpeg compiled into OpenCV (not on many Linux servers).
+        out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+        if not out.isOpened():
+            out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'XVID'), fps, (w, h))
         
         shot = data['prediction'].upper()
         form = data.get('form_analysis', {})
