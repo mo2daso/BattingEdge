@@ -237,7 +237,7 @@ def process_video_task(video_id: str, input_path: Path):
         # Step 2: Overlay generation (progress 60 → 85)
         db.update_progress(video_id, 60)
         logger.info(f"[api/analyze] Step 2/4: Creating overlay video...")
-        output_filename = f"{video_id}_overlay.mp4"
+        output_filename = f"{video_id}_overlay.webm"
         output_path = OUTPUT_DIR / output_filename
 
         try:
